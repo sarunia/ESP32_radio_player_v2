@@ -14,9 +14,9 @@
 
 
 #define SD_CS         47          // Pin CS (Chip Select) do komunikacji z kartą SD, wybierany jako interfejs SPI
-#define SPI_MOSI      48          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
+#define SPI_MOSI      39          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
 #define SPI_MISO      0           // Pin MISO (Master In Slave Out) dla interfejsu SPI
-#define SPI_SCK       45          // Pin SCK (Serial Clock) dla interfejsu SPI
+#define SPI_SCK       38          // Pin SCK (Serial Clock) dla interfejsu SPI
 #define I2S_DOUT      13          // połączenie do pinu DIN na DAC
 #define I2S_BCLK      12          // połączenie po pinu BCK na DAC
 #define I2S_LRC       14          // połączenie do pinu LCK na DAC
@@ -109,9 +109,9 @@ String fileNameString;                    // Zmienna przechowująca informację 
 
 File myFile; // Uchwyt pliku
 
-U8G2_SSD1322_NHD_256X64_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 38, /* data=*/ 39, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41);
+//U8G2_SSD1322_NHD_256X64_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 38, /* data=*/ 39, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Software SPI
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* clock=*/  /* data=*/  /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI
 
-//Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);    //Inicjalizacja obiektu wyświetlacza OLED
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
 Audio audio;                              // Obiekt do obsługi funkcji związanych z dźwiękiem i audio
@@ -1325,8 +1325,10 @@ void updateTimer()  // Wywoływana co sekundę przez timer
   //u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
   //u8g2.drawBox(170, 51, 86, 10);  // Wypełnia czarnym prostokątem obszar 86x10 pixeli, x=170, y=51
   u8g2.setDrawColor(1);
-  u8g2.drawStr(170, 51, "                ");
-  u8g2.sendBuffer();
+  //u8g2.drawStr(170, 51, "                ");
+  //u8g2.sendBuffer();
+  u8g2.setCursor(170, 51);
+  u8g2.print("                    ");
   // Zwiększ licznik sekund
   seconds++;
 
@@ -1344,9 +1346,11 @@ void updateTimer()  // Wywoływana co sekundę przez timer
     {
       if (mp3 == true)
       {
-        u8g2.drawStr(170, 51, "MP3");
+        //u8g2.drawStr(170, 51, "MP3");
         //u8g2.sendBuffer();
         //Serial.println("Gram MP3");
+        u8g2.setCursor(170, 51);
+        u8g2.print("MP3");
       }
       if (flac == true)
       {
@@ -1388,7 +1392,9 @@ void updateTimer()  // Wywoływana co sekundę przez timer
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
       //u8g2.setFont(u8g2_font_ncenB08_tr);
-      u8g2.drawStr(210, 51, timeString);
+      //u8g2.drawStr(210, 51, timeString);
+      u8g2.setCursor(210, 51);
+      u8g2.print(timeString);
       u8g2.sendBuffer();
     }
   }
@@ -1556,8 +1562,8 @@ void setup()
   audio.setVolume(volumeValue); // Ustaw głośność na podstawie wartości zmiennej volumeValue w zakresie 0...21
 
   // Inicjalizuj interfejs SPI dla obsługi czytnika kart SD
-  //SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
-  //SPI.setFrequency(1000000);
+  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+  SPI.setFrequency(1000000);
 
   // Inicjalizuj komunikację szeregową (Serial)
   Serial.begin(115200);
@@ -1591,7 +1597,7 @@ void setup()
     u8g2.drawStr(5, 40, "WIFI CONNECTED");
     u8g2.sendBuffer();
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    timer.attach(3, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
+    timer.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
     fetchStationsFromServer();
     changeStation();
   }

@@ -10,8 +10,6 @@
 #include <EEPROM.h>               // Biblioteka do obsługi pamięci EEPROM
 #include <Ticker.h>               // Mechanizm tickera do odświeżania timera 1s
 #include <WiFiManager.h>          // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
-//#include <Wire.h>
-
 
 #define SD_CS         47          // Pin CS (Chip Select) do komunikacji z kartą SD, wybierany jako interfejs SPI
 #define SPI_MOSI      39          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
@@ -58,9 +56,9 @@ int button_S1 = 17;               // Przycisk S1 podłączony do pinu 17
 int button_S2 = 18;               // Przycisk S2 podłączony do pinu 18
 int button_S3 = 15;               // Przycisk S3 podłączony do pinu 15
 int button_S4 = 16;               // Przycisk S4 podłączony do pinu 16
-int station_nr = 9;               // Numer aktualnie wybranej stacji radiowej z listy, domyślnie stacja nr 9
+int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
 int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrocenia na ekran po bezczynności
-int bank_nr = 1;                  // Numer aktualnie wybranego banku stacji z listy, domyślnie bank nr 1
+int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
 int bankFromBuffer = 0;           // Numer aktualnie wybranego banku stacji z listy do przywrocenia na ekran po bezczynności
 int CLK_state1;                   // Aktualny stan CLK enkodera prawego
 int prev_CLK_state1;              // Poprzedni stan CLK enkodera prawego    
@@ -110,7 +108,7 @@ String fileNameString;                    // Zmienna przechowująca informację 
 File myFile; // Uchwyt pliku
 
 //U8G2_SSD1322_NHD_256X64_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 38, /* data=*/ 39, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Software SPI
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* clock=*/  /* data=*/  /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI
 
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
@@ -471,9 +469,10 @@ void audio_info(const char *info)
   if ((currentOption == INTERNET_RADIO) && (bitrate == true)) 
   {
     u8g2.clearBuffer();	
-    u8g2.setFont(u8g2_font_ncenB08_tr);
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
     u8g2.drawStr(0, 10, stationName.c_str());
-    String displayString = sampleRateString.substring(1) + "Hz   " + bitsPerSampleString + "bit   " + bitrateString + "b/s";
+    //u8g2.setFont(u8g2_font_ncenB08_tr);
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
     u8g2.drawStr(0, 51, displayString.c_str());
     //u8g2.sendBuffer();
     //displayExecuted = true;  // Oznacz, że kod został już wykonany
@@ -687,9 +686,9 @@ void audio_showstreamtitle(const char *info)
   Serial.println(info);
   stationString = String(info);
 
-  if (stationString.length() > 120)
+  if (stationString.length() > 126)
   {
-    stationString = stationString.substring(0, 120); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
+    stationString = stationString.substring(0, 126); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
   }
 
   // Pomocnicza pętla w celu wyłapania bajtów stationString na serial terminalu 
@@ -708,7 +707,7 @@ void audio_showstreamtitle(const char *info)
   processText(stationString);   // Wywołuje funkcję `processText`, która przetwarza tekst zawarty w `stationString`
 
   // Parametry
-  const int maxLineLength = 40;  // Maksymalna długość jednej linii w znakach
+  const int maxLineLength = 42;  // Maksymalna długość jednej linii w znakach
   String currentLine = "";  // Bieżąca linia
   int yPosition = 21;  // Początkowa pozycja Y
 
@@ -1383,7 +1382,7 @@ void updateTimer()  // Wywoływana co sekundę przez timer
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
       //u8g2.setFont(u8g2_font_ncenB08_tr);
-      u8g2.drawStr(215, 51, timeString);
+      u8g2.drawStr(205, 51, timeString);
       u8g2.sendBuffer();
     }
   }
@@ -1470,8 +1469,8 @@ void readStationFromSD()
   if (!SD.begin(47))
   {
     Serial.println("Nie można znaleźć karty SD. Ustawiam domyślne wartości.");
-    station_nr = 9;
-    bank_nr = 1;
+    station_nr = 9; // Domyślny numer stacji gdy brak karty SD
+    bank_nr = 1;  // Domyślny numer banku gdy brak karty SD
     return;
   }
 

@@ -1322,13 +1322,10 @@ void playFromSelectedFolder()
 void updateTimer()  // Wywoływana co sekundę przez timer
 {
   // Narysuj prostokąt, aby wyczyścić 3 kolejne linie na ekranie
-  //u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
-  //u8g2.drawBox(170, 51, 86, 10);  // Wypełnia czarnym prostokątem obszar 86x10 pixeli, x=170, y=51
-  u8g2.setDrawColor(1);
-  //u8g2.drawStr(170, 51, "                ");
-  //u8g2.sendBuffer();
-  u8g2.setCursor(170, 51);
-  u8g2.print("                    ");
+  u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
+  u8g2.drawBox(170, 51, 86, 10);  // Wypełnia czarnym prostokątem obszar 86x10 pixeli, x=170, y=51
+  u8g2.sendBuffer();
+
   // Zwiększ licznik sekund
   seconds++;
 
@@ -1337,8 +1334,7 @@ void updateTimer()  // Wywoływana co sekundę przez timer
   unsigned int minutes = seconds / 60;
   unsigned int remainingSeconds = seconds % 60;
 
-  //u8g2.setDrawColor(1);
-  //u8g2.setFont(u8g2_font_ncenB08_tr);
+  u8g2.setDrawColor(1); // Ustaw kolor na biały
 
   if (timeDisplay == true)
   {
@@ -1346,22 +1342,17 @@ void updateTimer()  // Wywoływana co sekundę przez timer
     {
       if (mp3 == true)
       {
-        //u8g2.drawStr(170, 51, "MP3");
-        //u8g2.sendBuffer();
+        u8g2.drawStr(170, 51, "MP3");
         //Serial.println("Gram MP3");
-        u8g2.setCursor(170, 51);
-        u8g2.print("MP3");
       }
       if (flac == true)
       {
         u8g2.drawStr(170, 51, "FLAC");
-        //u8g2.sendBuffer();
         //Serial.println("Gram FLAC");
       }
       if (aac == true)
       {
         u8g2.drawStr(170, 51, "AAC");
-        //u8g2.sendBuffer();
         //Serial.println("Gram AAC");
       }
     }
@@ -1392,9 +1383,7 @@ void updateTimer()  // Wywoływana co sekundę przez timer
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
       //u8g2.setFont(u8g2_font_ncenB08_tr);
-      //u8g2.drawStr(210, 51, timeString);
-      u8g2.setCursor(210, 51);
-      u8g2.print(timeString);
+      u8g2.drawStr(215, 51, timeString);
       u8g2.sendBuffer();
     }
   }

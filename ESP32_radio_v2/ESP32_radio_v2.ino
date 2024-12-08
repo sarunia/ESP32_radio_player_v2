@@ -10,6 +10,8 @@
 #include <EEPROM.h>               // Biblioteka do obsługi pamięci EEPROM
 #include <Ticker.h>               // Mechanizm tickera do odświeżania timera 1s
 #include <WiFiManager.h>          // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
+#include <ArduinoJson.h>
+#include <Time.h>              
 
 #define SD_CS         47          // Pin CS (Chip Select) do komunikacji z kartą SD, wybierany jako interfejs SPI
 #define SPI_MOSI      39          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
@@ -49,6 +51,9 @@
 #define LICZNIK_S3 15             // Numer pinu dla enkodera/licznika S3
 #define LICZNIK_S4 16             // Numer pinu dla enkodera/licznika S4
 #define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
+
+// Deklaracja obiektu JSON
+StaticJsonDocument<1024> doc;  // Zakładając, że rozmiar JSON to około 1024 bajty
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
@@ -113,7 +118,9 @@ U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* r
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
 Audio audio;                              // Obiekt do obsługi funkcji związanych z dźwiękiem i audio
-Ticker timer;                             // Obiekt do obsługi timera
+Ticker timer1;                            // Timer do updateTimer
+Ticker timer2;                            // Timer do updateWeather
+WiFiClient client;
 
 char stations[MAX_STATIONS][MAX_LINK_LENGTH + 1];   // Tablica przechowująca linki do stacji radiowych (jedna na stację) +1 dla terminatora null
 
@@ -169,6 +176,138 @@ void IRAM_ATTR zlicz_S4() // funkcja obsługi przerwania z przycisku S4
     lastDebounceTime = millis(); // Zapisujemy czas ostatniego debouncingu
     button_4 = true;
   }
+}
+
+// Funkcja do pobierania danych z API z serwera pogody openweathermap.org
+void getWeatherData()
+{
+  HTTPClient http;  // Utworzenie obiektu HTTPClient
+  
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, link musi zawierać Twoją lokalizację i klucz API
+
+  http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
+
+  int httpCode = http.GET();  // Wysłanie żądanie GET do serwera, aby pobrać dane pogodowe
+
+  if (httpCode == HTTP_CODE_OK)  // Sprawdzenie, czy odpowiedź z serwera była prawidłowa (kod 200 OK)
+  {
+    String payload = http.getString();  // Pobranie odpowiedzi z serwera w postaci ciągu znaków (JSON)
+    Serial.println("Odpowiedź JSON z API:");
+    Serial.println(payload); 
+
+    DeserializationError error = deserializeJson(doc, payload);  // Deserializujemy dane JSON do obiektu dokumentu
+    if (error)  // Sprawdzamy, czy deserializacja JSON zakończyła się niepowodzeniem
+    {
+      Serial.print(F("deserializeJson() failed: "));  // Jeśli jest błąd, drukujemy komunikat o błędzie
+      Serial.println(error.f_str());  // Wydruk szczegółów błędu deserializacji
+      return;  // Zakończenie funkcji w przypadku błędu
+    }
+
+    updateWeather();  // Jeśli deserializacja zakończyła się sukcesem, wywołujemy funkcję `updateWeather`, aby zaktualizować wyświetlacz i serial terminal
+  }
+  else  // Jeśli połączenie z serwerem nie powiodło się
+  {
+    Serial.println("Błąd połączenia z serwerem.");
+    u8g2.drawStr(0, 62, "                                           ");
+    u8g2.drawStr(0, 62, "Brak polaczenia z serwerem pogody");
+    u8g2.sendBuffer();  
+  }
+
+  http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
+}
+
+// Funkcja do aktualizacji danych pogodowych
+void updateWeather()
+{
+  u8g2.drawStr(0, 62, "                                           "); // Wypełnienie spacjami jako czyszczenie linii
+
+  JsonObject root = doc.as<JsonObject>();  // Konwertuje dokument JSON do obiektu typu JsonObject
+
+  JsonObject main = root["main"];  // Pobiera obiekt "main" zawierający dane główne, takie jak temperatura, wilgotność, ciśnienie
+  JsonObject weather = root["weather"][0];  // Pobiera pierwszy element z tablicy "weather", który zawiera dane o pogodzie
+  JsonObject wind = root["wind"];  // Pobiera obiekt "wind" zawierający dane o wietrze
+
+  unsigned long timestamp = root["dt"];  // Pobiera timestamp (czas w sekundach) z JSON
+  String formattedDate = convertTimestampToDate(timestamp);  // Konwertuje timestamp na sformatowaną datę i godzinę
+
+  float temp = main["temp"].as<float>() - 273.15;  // Pobiera temperaturę w Kelvinach i konwertuje ją na °C
+  float feels_like = main["feels_like"].as<float>() - 273.15;  // Pobiera odczuwalną temperaturę i konwertuje ją na °C
+
+  int humidity = main["humidity"];  // Pobiera wilgotność powietrza
+  String weatherDescription = weather["description"].as<String>();  // Pobiera opis pogody (np. "light rain")
+  String icon = weather["icon"].as<String>();  // Pobiera kod ikony pogody (np. "10d" dla deszczu)
+  float windSpeed = wind["speed"];  // Pobiera prędkość wiatru w m/s
+  float windGust = wind["gust"];  // Pobiera prędkość podmuchów wiatru w m/s
+  float pressure = main["pressure"].as<float>();  // Pobiera ciśnienie powietrza w hPa
+
+  Serial.println("Dane z JSON:");
+  Serial.print("Data: ");
+  Serial.println(formattedDate);
+  Serial.print("Temperatura: ");
+  Serial.print(temp, 2);
+  Serial.println(" °C");
+  String tempStr = "Temp: " + String(temp, 2) + " C";
+  
+  Serial.print("Odczuwalna temperatura: ");
+  Serial.print(feels_like, 2);
+  Serial.println(" °C");
+  
+  Serial.print("Wilgotność: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  String humidityStr = "Wilg: " + String(humidity) + "%";
+  
+  Serial.print("Ciśnienie: ");
+  Serial.print(pressure);
+  Serial.println(" hPa");
+  String pressureStr = "Cisn: " + String(pressure, 2) + " hPa";
+  
+  
+  Serial.print("Opis pogody: ");
+  Serial.println(weatherDescription);
+  Serial.print("Ikona: ");
+  Serial.println(icon);
+  
+  Serial.print("Prędkość wiatru: ");
+  Serial.print(windSpeed, 2);
+  Serial.println(" m/s");
+  
+  Serial.print("Podmuchy wiatru: ");
+  Serial.print(windGust, 2);
+  Serial.println(" m/s");
+
+  u8g2.drawStr(0, 62, tempStr.c_str());
+  u8g2.drawStr(80, 62, humidityStr.c_str());
+  u8g2.drawStr(145, 62, pressureStr.c_str());
+  u8g2.sendBuffer();
+}
+
+// Funkcja konwertująca timestamp na datę i godzinę w formacie "YYYY-MM-DD HH:MM:SS"
+String convertTimestampToDate(unsigned long timestamp)  
+{
+  int year, month, day, hour, minute, second;  // Deklaracja zmiennych dla roku, miesiąca, dnia, godziny, minuty i sekundy z pogodynki
+  time_t rawTime = timestamp;                  // Konwersja timestamp na typ time_t, który jest wymagany przez funkcję localtime()
+  struct tm* timeInfo;                         // Wskaźnik na strukturę tm, która zawiera informacje o czasie
+  timeInfo = localtime(&rawTime);              // Konwertowanie rawTime na strukturę tm zawierającą szczegóły daty i godziny
+
+  year = timeInfo->tm_year + 1900;             // Rok jest liczony od 1900 roku, więc musimy dodać 1900
+  month = timeInfo->tm_mon + 1;                // Miesiąc jest indeksowany od 0, więc dodajemy 1
+  day = timeInfo->tm_mday;                     // Dzień miesiąca
+  hour = timeInfo->tm_hour;                    // Godzina (0-23)
+  minute = timeInfo->tm_min;                   // Minuta (0-59)
+  second = timeInfo->tm_sec;                   // Sekunda (0-59)
+
+  // Formatowanie na dwie cyfry (dodawanie zer na początku, jeśli liczba jest mniejsza niż 10)
+  String strMonth = (month < 10) ? "0" + String(month) : String(month);            // Dodaje zero przed miesiącem, jeśli miesiąc jest mniejszy niż 10
+  String strDay = (day < 10) ? "0" + String(day) : String(day);                    // Dodaje zero przed dniem, jeśli dzień jest mniejszy niż 10
+  String strHour = (hour < 10) ? "0" + String(hour) : String(hour);                // Dodaje zero przed godziną, jeśli godzina jest mniejsza niż 10
+  String strMinute = (minute < 10) ? "0" + String(minute) : String(minute);        // Dodaje zero przed minutą, jeśli minuta jest mniejsza niż 10
+  String strSecond = (second < 10) ? "0" + String(second) : String(second);        // Dodaje zero przed sekundą, jeśli sekunda jest mniejsza niż 10
+
+  // Tworzenie sformatowanej daty w formacie "YYYY-MM-DD HH:MM:SS"
+  String date = String(year) + "-" + strMonth + "-" + strDay + " " + strHour + ":" + strMinute + ":" + strSecond;
+                
+  return date;  // Zwraca sformatowaną datę jako String
 }
 
 
@@ -1318,12 +1457,14 @@ void playFromSelectedFolder()
   display.display();
 }*/
 
+
+
+
+
 void updateTimer()  // Wywoływana co sekundę przez timer
 {
-  // Narysuj prostokąt, aby wyczyścić 3 kolejne linie na ekranie
-  u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
-  u8g2.drawBox(170, 51, 86, 10);  // Wypełnia czarnym prostokątem obszar 86x10 pixeli, x=170, y=51
-  u8g2.sendBuffer();
+  // Wypełnij spacjami, aby wyczyścić pole
+  u8g2.drawStr(170, 51, "              ");
 
   // Zwiększ licznik sekund
   seconds++;
@@ -1585,7 +1726,8 @@ void setup()
     u8g2.drawStr(5, 40, "WIFI CONNECTED");
     u8g2.sendBuffer();
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    timer.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
+    timer1.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
+    timer2.attach(30, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 30 sekund
     fetchStationsFromServer();
     changeStation();
   }

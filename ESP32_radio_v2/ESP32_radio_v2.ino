@@ -53,7 +53,7 @@
 #define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
 
 // Deklaracja obiektu JSON
-StaticJsonDocument<1024> doc;  // Zakładając, że rozmiar JSON to około 1024 bajty
+StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
@@ -76,6 +76,7 @@ int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze ws
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
 int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę plików w folderze
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
+int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 const int maxVisibleLines = 5;    // Maksymalna liczba widocznych linii na ekranie OLED
 bool button_1 = false;            // Flaga określająca stan przycisku 1
 bool button_2 = false;            // Flaga określająca stan przycisku 2
@@ -110,6 +111,14 @@ String artistString;                      // Zmienna przechowująca informację 
 String titleString;                       // Zmienna przechowująca informację o tytule utworu
 String fileNameString;                    // Zmienna przechowująca informację o nazwie pliku
 
+// Przygotowanie danych pogody do wyświetlenia
+String tempStr;
+String feels_likeStr;
+String humidityStr;
+String pressureStr;
+String windStr;
+String windGustStr;
+
 File myFile; // Uchwyt pliku
 
 //U8G2_SSD1322_NHD_256X64_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 38, /* data=*/ 39, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Software SPI
@@ -119,7 +128,8 @@ ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enko
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
 Audio audio;                              // Obiekt do obsługi funkcji związanych z dźwiękiem i audio
 Ticker timer1;                            // Timer do updateTimer
-Ticker timer2;                            // Timer do updateWeather
+Ticker timer2;                            // Timer do getWeatherData
+Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii
 WiFiClient client;
 
 char stations[MAX_STATIONS][MAX_LINK_LENGTH + 1];   // Tablica przechowująca linki do stacji radiowych (jedna na stację) +1 dla terminatora null
@@ -127,6 +137,7 @@ char stations[MAX_STATIONS][MAX_LINK_LENGTH + 1];   // Tablica przechowująca li
 const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do synchronizacji czasu
 const long  gmtOffset_sec = 3600;            // Przesunięcie czasu UTC w sekundach
 const int   daylightOffset_sec = 3600;       // Przesunięcie czasu letniego w sekundach, dla Polski to 1 godzina
+
 
 enum MenuOption
 {
@@ -183,7 +194,8 @@ void getWeatherData()
 {
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, link musi zawierać Twoją lokalizację i klucz API
+  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";  // URL z danymi do API
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -246,22 +258,22 @@ void updateWeather()
   Serial.print("Temperatura: ");
   Serial.print(temp, 2);
   Serial.println(" °C");
-  String tempStr = "Temp: " + String(temp, 2) + " C";
+  tempStr = "Temperatura: " + String(temp, 2) + " C";
   
   Serial.print("Odczuwalna temperatura: ");
   Serial.print(feels_like, 2);
   Serial.println(" °C");
+  feels_likeStr = "Odczuwalna: " + String(feels_like, 2) + " C";
   
   Serial.print("Wilgotność: ");
   Serial.print(humidity);
   Serial.println(" %");
-  String humidityStr = "Wilg: " + String(humidity) + "%";
+  humidityStr = "Wilgotnosc: " + String(humidity) + " %";
   
   Serial.print("Ciśnienie: ");
   Serial.print(pressure);
   Serial.println(" hPa");
-  String pressureStr = "Cisn: " + String(pressure, 2) + " hPa";
-  
+  pressureStr = "Cisnienie: " + String(pressure, 2) + " hPa";
   
   Serial.print("Opis pogody: ");
   Serial.println(weatherDescription);
@@ -271,15 +283,43 @@ void updateWeather()
   Serial.print("Prędkość wiatru: ");
   Serial.print(windSpeed, 2);
   Serial.println(" m/s");
+  windStr = "Wiatr: " + String(windSpeed) + " m/s";
   
   Serial.print("Podmuchy wiatru: ");
   Serial.print(windGust, 2);
   Serial.println(" m/s");
+  windGustStr = "W podmuchach: " + String(windGust) + " m/s";
 
-  u8g2.drawStr(0, 62, tempStr.c_str());
-  u8g2.drawStr(80, 62, humidityStr.c_str());
-  u8g2.drawStr(145, 62, pressureStr.c_str());
+}
+
+void switchWeatherData()
+{
+  if (cycle == 0)
+  {
+    u8g2.drawStr(0, 62, "                                           ");
+    u8g2.drawStr(0, 62, tempStr.c_str());
+    u8g2.drawStr(130, 62, feels_likeStr.c_str()); 
+  } 
+  else if (cycle == 1)
+  {
+    u8g2.drawStr(0, 62, "                                           ");
+    u8g2.drawStr(0, 62, windStr.c_str());
+    u8g2.drawStr(110, 62, windGustStr.c_str());
+  } 
+  else if (cycle == 2)
+  {
+    u8g2.drawStr(0, 62, "                                           ");
+    u8g2.drawStr(0, 62, humidityStr.c_str());
+    u8g2.drawStr(115, 62, pressureStr.c_str());
+  }
+
   u8g2.sendBuffer();
+
+  // Zmiana cyklu: przechodzimy do następnego zestawu danych
+  cycle++;
+  if (cycle > 2) {
+    cycle = 0;  // Wracamy do cyklu 0 po trzecim cyklu
+  }
 }
 
 // Funkcja konwertująca timestamp na datę i godzinę w formacie "YYYY-MM-DD HH:MM:SS"
@@ -825,9 +865,9 @@ void audio_showstreamtitle(const char *info)
   Serial.println(info);
   stationString = String(info);
 
-  if (stationString.length() > 126)
+  if (stationString.length() > 123)
   {
-    stationString = stationString.substring(0, 126); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
+    stationString = stationString.substring(0, 123); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
   }
 
   // Pomocnicza pętla w celu wyłapania bajtów stationString na serial terminalu 
@@ -846,7 +886,7 @@ void audio_showstreamtitle(const char *info)
   processText(stationString);   // Wywołuje funkcję `processText`, która przetwarza tekst zawarty w `stationString`
 
   // Parametry
-  const int maxLineLength = 42;  // Maksymalna długość jednej linii w znakach
+  const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
   String currentLine = "";  // Bieżąca linia
   int yPosition = 21;  // Początkowa pozycja Y
 
@@ -1728,6 +1768,7 @@ void setup()
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     timer1.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
     timer2.attach(30, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 30 sekund
+    timer3.attach(10, switchWeatherData);   // Ustaw timer, aby wywoływał funkcję switchWeatherData co 10 sekund
     fetchStationsFromServer();
     changeStation();
   }

@@ -121,15 +121,14 @@ String windGustStr;
 
 File myFile; // Uchwyt pliku
 
-//U8G2_SSD1322_NHD_256X64_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 38, /* data=*/ 39, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Software SPI
 U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI
 
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
 Audio audio;                              // Obiekt do obsługi funkcji związanych z dźwiękiem i audio
-Ticker timer1;                            // Timer do updateTimer
-Ticker timer2;                            // Timer do getWeatherData
-Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii
+Ticker timer1;                            // Timer do updateTimer co 1s
+Ticker timer2;                            // Timer do getWeatherData co 60s
+Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii co 10s
 WiFiClient client;
 
 char stations[MAX_STATIONS][MAX_LINK_LENGTH + 1];   // Tablica przechowująca linki do stacji radiowych (jedna na stację) +1 dla terminatora null
@@ -651,7 +650,7 @@ void audio_info(const char *info)
     u8g2.drawStr(0, 10, stationName.c_str());
     //u8g2.setFont(u8g2_font_ncenB08_tr);
     String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 51, displayString.c_str());
+    u8g2.drawStr(0, 52, displayString.c_str());
     //u8g2.sendBuffer();
     //displayExecuted = true;  // Oznacz, że kod został już wykonany
   }
@@ -856,9 +855,9 @@ void audio_showstation(const char *info)
 void audio_showstreamtitle(const char *info)
 {
   // Narysuj prostokąt, aby wyczyścić 3 kolejne linie na ekranie
-  u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
-  u8g2.drawBox(0, 11, 256, 30);  // Wypełnia czarnym prostokątem, wyliczone pod 3 linie tekstu na ekranie
-  u8g2.sendBuffer();
+  //u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
+  //u8g2.drawBox(0, 11, 256, 30);  // Wypełnia czarnym prostokątem, wyliczone pod 3 linie tekstu na ekranie  -----------------zostawały jakieś śmieci przy zapełnionych 3 liniach
+  //u8g2.sendBuffer();
 
   Serial.print("streamtitle ");
   Serial.println(info);
@@ -893,7 +892,12 @@ void audio_showstreamtitle(const char *info)
   String word;
   int wordStart = 0;
 
-  u8g2.setDrawColor(1); // Ustaw ponownie biały kolor do wyświetlania
+  //u8g2.setDrawColor(1); // Ustaw ponownie biały kolor do wyświetlania
+  
+  u8g2.drawStr(0, 21, "                                           ");
+  u8g2.drawStr(0, 31, "                                           ");
+  u8g2.drawStr(0, 41, "                                           ");
+
   for (int i = 0; i <= stationString.length(); i++)
   {
     // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
@@ -1439,62 +1443,59 @@ void playFromSelectedFolder()
   display.display();
 }*/
 
-// Funkcja do drukowania listy stacji radiowych na ekranie OLED z uwzględnieniem zaznaczenia
-/*void printStationsToOLED()
+
+
+// Funkcja do drukowania listy stacji radiowych na ekranie OLED
+void printStationsToOLED()
 {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(0, 0);
-  display.println("STACJE RADIOWE " + String(station_nr) + "/" + String(stationsCount));
+  u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej zawartości
+  u8g2.setCursor(0, 10);  // Ustaw pozycję kursora (x=0, y=10) dla nagłówka
+  u8g2.print("STACJE RADIOWE    ");  // Wyświetl nagłówek "STACJE RADIOWE"
+  u8g2.print(String(station_nr) + "/" + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
+  
+  int displayRow = 1;  // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
 
-  int displayRow = 1;  // Zaczynamy od drugiego wiersza (pierwszy to nagłówek)
-
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 7, stationsCount); i++)
+  // Wyświetlanie stacji, zaczynając od drugiej linii (y=21)
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleLines, stationsCount); i++)
   {
-    char station[MAX_LINK_LENGTH + 1];
-    memset(station, 0, sizeof(station));
-
-    // Odczytaj długość linku
+    char station[MAX_LINK_LENGTH + 1];  // Tablica na nazwę stacji o maksymalnej długości zdefiniowanej przez MAX_LINK_LENGTH
+    memset(station, 0, sizeof(station));  // Wyczyszczenie tablicy zerami przed zapisaniem danych
+    
+    // Odczytaj długość nazwy stacji z EEPROM dla bieżącego indeksu stacji
     int length = EEPROM.read(i * (MAX_LINK_LENGTH + 1));
 
-    // Odczytaj link jako bajty
-    for (int j = 0; j < min(length, 21); j++)
+    // Odczytaj nazwę stacji z EEPROM jako ciąg bajtów, maksymalnie do MAX_LINK_LENGTH
+    for (int j = 0; j < min(length, MAX_LINK_LENGTH); j++)
     {
-      station[j] = EEPROM.read(i * (MAX_LINK_LENGTH + 1) + 1 + j);
+      station[j] = EEPROM.read(i * (MAX_LINK_LENGTH + 1) + 1 + j);  // Odczytaj znak po znaku nazwę stacji
     }
 
-    // Podświetlenie zaznaczenia
+    // Sprawdź, czy bieżąca stacja to ta, która jest aktualnie zaznaczona
     if (i == currentSelection)
     {
-      display.setTextColor(SH110X_BLACK, SH110X_WHITE);
+      u8g2.setDrawColor(1);  // Ustaw biały kolor rysowania
+      u8g2.drawBox(0, displayRow * 11, 256, 10);  // Narysuj prostokąt jako tło dla zaznaczonej stacji (x=0, szerokość 256, wysokość 10)
+      u8g2.setDrawColor(0);  // Zmień kolor rysowania na czarny dla tekstu zaznaczonej stacji
     }
     else
     {
-      display.setTextColor(SH110X_WHITE);
+      u8g2.setDrawColor(1);  // Dla niezaznaczonych stacji ustaw zwykły biały kolor tekstu
     }
 
-    // Wyświetl nazwę stacji (pierwsze 21 znaków)
-    display.setCursor(0, displayRow * 9);
-    display.print(station);
-    // Dodaj dodatkowy wydruk do diagnostyki
-    //Serial.print("Wyświetlona stacja: ");
-    //Serial.println(station);
-    for (int y = 61; y <= 63; y++) // Wygaszenie 2 ostatnich linii wyświetlacza
-    {
-      for (int x = 0; x < 127; x++)
-      {
-        display.drawPixel(x, y, SH110X_BLACK);
-      }
-    }
-    // Przesuń się do kolejnego wiersza
+    // Wyświetl nazwę stacji, ustawiając kursor na odpowiedniej pozycji
+    u8g2.setCursor(0, displayRow * 10 + 11);  // Kursor dla danej linii (x=0, y=21 + 10 * numer_wiersza)
+    u8g2.print(station);  // Wyświetl nazwę stacji
+
+    // Przejdź do następnej linii (następny wiersz na ekranie)
     displayRow++;
   }
 
-  // Przywróć domyślne kolory tekstu
-  display.setTextColor(SH110X_WHITE);
-  display.display();
-}*/
+  // Przywróć domyślne ustawienia koloru rysowania (biały tekst na czarnym tle)
+  u8g2.setDrawColor(1);  // Biały kolor rysowania
+
+  u8g2.sendBuffer();  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
+}
+
 
 
 
@@ -1766,10 +1767,11 @@ void setup()
     u8g2.sendBuffer();
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     timer1.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
-    timer2.attach(30, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 30 sekund
+    timer2.attach(60, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 60 sekund
     timer3.attach(10, switchWeatherData);   // Ustaw timer, aby wywoływał funkcję switchWeatherData co 10 sekund
     fetchStationsFromServer();
     changeStation();
+    getWeatherData();
   }
   else
   {
@@ -1872,7 +1874,7 @@ void loop()
       display.display();
     }
   }
-  prev_CLK_state1 = CLK_state1;
+  prev_CLK_state1 = CLK_state1;*/
 
   CLK_state2 = digitalRead(CLK_PIN2);
   if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH) 
@@ -1891,8 +1893,8 @@ void loop()
         {
           station_nr = 1;
         }
-        //Serial.print("Numer stacji do tyłu: ");
-        //Serial.println(station_nr);
+        Serial.print("Numer stacji do tyłu: ");
+        Serial.println(station_nr);
         scrollUp();
       }
       else
@@ -1902,14 +1904,14 @@ void loop()
         {
           station_nr = stationsCount;
         }
-        //Serial.print("Numer stacji do przodu: ");
-        //Serial.println(station_nr);
+        Serial.print("Numer stacji do przodu: ");
+        Serial.println(station_nr);
         scrollDown();
       }
       printStationsToOLED();
     }
 
-    if (currentOption == BANK_LIST) // Przewijanie listy banków stacji radiowych
+    /*if (currentOption == BANK_LIST) // Przewijanie listy banków stacji radiowych
     {
       if (digitalRead(DT_PIN2) == HIGH)
       {
@@ -1938,9 +1940,9 @@ void loop()
       display.setCursor(55, 30);
       display.println(bank_nr);
       display.display();
-    }
+    }*/
   }
-  prev_CLK_state2 = CLK_state2;*/
+  prev_CLK_state2 = CLK_state2;
 
   /*if (displayActive && (millis() - displayStartTime >= displayTimeout))   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
   {

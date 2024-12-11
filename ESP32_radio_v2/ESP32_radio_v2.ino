@@ -6,12 +6,12 @@
 #include "FS.h"                   // Biblioteka do obsługi systemu plików
 #include <U8g2lib.h>              // Biblioteka do obsługi wyświetlaczy
 #include <ezButton.h>             // Biblioteka do obsługi enkodera z przyciskiem
-#include <HTTPClient.h>           // Biblioteka do wykonywania żądań HTTP
-#include <EEPROM.h>               // Biblioteka do obsługi pamięci EEPROM
-#include <Ticker.h>               // Mechanizm tickera do odświeżania timera 1s
+#include <HTTPClient.h>           // Biblioteka do wykonywania żądań HTTP, umożliwia komunikację z serwerami przez protokół HTTP
+#include <EEPROM.h>               // Biblioteka do obsługi pamięci EEPROM, przechowywanie danych w pamięci nieulotnej
+#include <Ticker.h>               // Mechanizm tickera do odświeżania timera 1s, pomocny do cyklicznych akcji w pętli głównej
 #include <WiFiManager.h>          // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
-#include <ArduinoJson.h>
-#include <Time.h>              
+#include <ArduinoJson.h>          // Biblioteka do parsowania i tworzenia danych w formacie JSON, użyteczna do pracy z API
+#include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
 
 #define SD_CS         47          // Pin CS (Chip Select) do komunikacji z kartą SD, wybierany jako interfejs SPI
 #define SPI_MOSI      39          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
@@ -52,9 +52,6 @@
 #define LICZNIK_S4 16             // Numer pinu dla enkodera/licznika S4
 #define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
 
-// Deklaracja obiektu JSON
-StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
-
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
 int button_S1 = 17;               // Przycisk S1 podłączony do pinu 17
@@ -93,7 +90,7 @@ bool aac = false;                 // Flaga określająca, czy aktualny plik audi
 bool noID3data = false;           // Flaga określająca, czy plik audio posiada dane ID3
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
 bool listedStations = false;      // Flaga określająca czy na ekranie jest pokazana lista stacji do wyboru
-bool menuEnable = false;          // Flaga określająca czy na ekranie można wyświetlić menu                                                                                  // Zmienna śledząca wykonanie kodu
+bool menuEnable = false;          // Flaga określająca czy na ekranie można wyświetlić menu
 unsigned long lastDebounceTime = 0;       // Czas ostatniego debouncingu
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -137,6 +134,8 @@ const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do sy
 const long  gmtOffset_sec = 3600;            // Przesunięcie czasu UTC w sekundach
 const int   daylightOffset_sec = 3600;       // Przesunięcie czasu letniego w sekundach, dla Polski to 1 godzina
 
+// Deklaracja obiektu JSON
+StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
 
 enum MenuOption
 {
@@ -193,7 +192,7 @@ void getWeatherData()
 {
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
+  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -212,8 +211,10 @@ void getWeatherData()
       Serial.println(error.f_str());  // Wydruk szczegółów błędu deserializacji
       return;  // Zakończenie funkcji w przypadku błędu
     }
-
-    updateWeather();  // Jeśli deserializacja zakończyła się sukcesem, wywołujemy funkcję `updateWeather`, aby zaktualizować wyświetlacz i serial terminal
+    if (timeDisplay == true)
+    {
+     updateWeather();  // Jeśli deserializacja zakończyła się sukcesem, wywołujemy funkcję `updateWeather`, aby zaktualizować wyświetlacz i serial terminal
+    }
   }
   else  // Jeśli połączenie z serwerem nie powiodło się
   {
@@ -292,27 +293,29 @@ void updateWeather()
 
 void switchWeatherData()
 {
+  if (timeDisplay == true)
+  {
   if (cycle == 0)
-  {
-    u8g2.drawStr(0, 62, "                                           ");
-    u8g2.drawStr(0, 62, tempStr.c_str());
-    u8g2.drawStr(130, 62, feels_likeStr.c_str()); 
-  } 
-  else if (cycle == 1)
-  {
-    u8g2.drawStr(0, 62, "                                           ");
-    u8g2.drawStr(0, 62, windStr.c_str());
-    u8g2.drawStr(110, 62, windGustStr.c_str());
-  } 
-  else if (cycle == 2)
-  {
-    u8g2.drawStr(0, 62, "                                           ");
-    u8g2.drawStr(0, 62, humidityStr.c_str());
-    u8g2.drawStr(115, 62, pressureStr.c_str());
+    {
+      u8g2.drawStr(0, 62, "                                           ");
+      u8g2.drawStr(0, 62, tempStr.c_str());
+      u8g2.drawStr(130, 62, feels_likeStr.c_str()); 
+    } 
+    else if (cycle == 1)
+    {
+      u8g2.drawStr(0, 62, "                                           ");
+      u8g2.drawStr(0, 62, windStr.c_str());
+      u8g2.drawStr(110, 62, windGustStr.c_str());
+    } 
+    else if (cycle == 2)
+    {
+      u8g2.drawStr(0, 62, "                                           ");
+      u8g2.drawStr(0, 62, humidityStr.c_str());
+      u8g2.drawStr(115, 62, pressureStr.c_str());
+    }
+
+    u8g2.sendBuffer();
   }
-
-  u8g2.sendBuffer();
-
   // Zmiana cyklu: przechodzimy do następnego zestawu danych
   cycle++;
   if (cycle > 2) {
@@ -858,6 +861,9 @@ void audio_showstreamtitle(const char *info)
   //u8g2.setDrawColor(0);  // Ustaw kolor na czarny, wygaszanie pikseli
   //u8g2.drawBox(0, 11, 256, 30);  // Wypełnia czarnym prostokątem, wyliczone pod 3 linie tekstu na ekranie  -----------------zostawały jakieś śmieci przy zapełnionych 3 liniach
   //u8g2.sendBuffer();
+  u8g2.drawStr(0, 21, "                                           ");
+  u8g2.drawStr(0, 31, "                                           ");
+  u8g2.drawStr(0, 41, "                                           ");
 
   Serial.print("streamtitle ");
   Serial.println(info);
@@ -881,7 +887,7 @@ void audio_showstreamtitle(const char *info)
   }
   Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
 
-  processText(stationString);   // Wywołuje funkcję `processText`, która przetwarza tekst zawarty w `stationString`
+  //processText(stationString);   // Wywołuje funkcję `processText`, która przetwarza tekst zawarty w `stationString`
 
   // Parametry
   const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
@@ -892,19 +898,13 @@ void audio_showstreamtitle(const char *info)
   String word;
   int wordStart = 0;
 
-  //u8g2.setDrawColor(1); // Ustaw ponownie biały kolor do wyświetlania
-  
-  u8g2.drawStr(0, 21, "                                           ");
-  u8g2.drawStr(0, 31, "                                           ");
-  u8g2.drawStr(0, 41, "                                           ");
-
   for (int i = 0; i <= stationString.length(); i++)
   {
     // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
     if (i == stationString.length() || stationString.charAt(i) == ' ')
     {
       // Pobierz słowo
-      word = stationString.substring(wordStart, i);
+      String word = stationString.substring(wordStart, i);
       wordStart = i + 1;
 
       // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
@@ -1444,14 +1444,13 @@ void playFromSelectedFolder()
 }*/
 
 
-
 // Funkcja do drukowania listy stacji radiowych na ekranie OLED
 void printStationsToOLED()
 {
   u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej zawartości
-  u8g2.setCursor(0, 10);  // Ustaw pozycję kursora (x=0, y=10) dla nagłówka
+  u8g2.setCursor(50, 10);  // Ustaw pozycję kursora (x=0, y=10) dla nagłówka
   u8g2.print("STACJE RADIOWE    ");  // Wyświetl nagłówek "STACJE RADIOWE"
-  u8g2.print(String(station_nr) + "/" + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
+  u8g2.print(String(station_nr) + " / " + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
   
   int displayRow = 1;  // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
 
@@ -1495,9 +1494,6 @@ void printStationsToOLED()
 
   u8g2.sendBuffer();  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
 }
-
-
-
 
 
 
@@ -1750,6 +1746,7 @@ void setup()
   u8g2.drawStr(5, 40, "INTERNET RADIO");
   u8g2.sendBuffer();	
 
+  button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
 
   delay(1000); // Rozgrzewka wyświetlacza, popatrz jak ładnie świeci napis
 
@@ -1944,19 +1941,62 @@ void loop()
   }
   prev_CLK_state2 = CLK_state2;
 
-  /*if (displayActive && (millis() - displayStartTime >= displayTimeout))   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
+  if (displayActive && (millis() - displayStartTime >= displayTimeout))   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
   {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SH110X_WHITE);
-    display.setCursor(0, 0);
-    display.println(stationName);
-    display.setCursor(0, 10);
-    display.println(stationString);
-    display.setCursor(0, 37);
-    display.println(sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit");
+    // Parametry
+    const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
+    String currentLine = "";  // Bieżąca linia
+    int yPosition = 21;  // Początkowa pozycja Y
 
-    display.setCursor(102, 37);
+    // Podziel tekst na wyrazy
+    String word;
+    int wordStart = 0;
+
+    u8g2.clearBuffer();	
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.drawStr(0, 10, stationName.c_str());
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+    u8g2.drawStr(0, 52, displayString.c_str());
+
+    for (int i = 0; i <= stationString.length(); i++)
+    {
+      // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
+      if (i == stationString.length() || stationString.charAt(i) == ' ')
+      {
+        // Pobierz słowo
+        String word = stationString.substring(wordStart, i);
+        wordStart = i + 1;
+
+        // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
+        if (currentLine.length() + word.length() <= maxLineLength)
+        {
+          // Dodaj słowo do bieżącej linii
+          if (currentLine.length() > 0)
+          {
+            currentLine += " ";  // Dodaj spację między słowami
+          }
+          currentLine += word;
+        }
+        else
+        {
+          // Jeśli słowo nie pasuje, wyświetl bieżącą linię i przejdź do nowej linii
+          u8g2.drawStr(0, yPosition, currentLine.c_str());
+          yPosition += 10;  // Przesunięcie w dół dla kolejnej linii
+
+          // Zresetuj bieżącą linię i dodaj nowe słowo
+          currentLine = word;
+        }
+      }
+    }
+
+    // Wyświetl ostatnią linię, jeśli coś zostało
+    if (currentLine.length() > 0)
+    {
+      u8g2.drawStr(0, yPosition, currentLine.c_str());
+    }
+    u8g2.sendBuffer();
+
+    /*display.setCursor(102, 37);
     if (mp3 == true)
     {
       display.print("MP3");
@@ -1968,13 +2008,8 @@ void loop()
     if (aac == true)
     {
       display.print("AAC");
-    }
+    }*/
     
-    display.setCursor(0, 47);
-    display.println(bitrateString.substring(1) + "b/s  Bank " + String(bankFromBuffer));
-    display.setCursor(66, 56);
-    display.println("Stacja " + String(stationFromBuffer));
-    display.display();
     displayActive = false;
     timeDisplay = true;
     listedStations = false;
@@ -1982,7 +2017,7 @@ void loop()
     currentOption = INTERNET_RADIO;
   }
   
-  if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))
+  /*if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))
   {
     if (!SD.begin(SD_CS))
     {

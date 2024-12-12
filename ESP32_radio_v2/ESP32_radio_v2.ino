@@ -97,6 +97,8 @@ unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ek
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
 
+
+
 String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
 String stationName;                       // Nazwa aktualnie wybranej stacji radiowej
@@ -187,12 +189,106 @@ void IRAM_ATTR zlicz_S4() // funkcja obsługi przerwania z przycisku S4
   }
 }
 
+
+
+
+void handleButtons()
+{
+  static unsigned long buttonPressTime = 0;  // Zmienna do przechowywania czasu naciśnięcia przycisku
+  static bool isButtonPressed = false;       // Flaga do śledzenia, czy przycisk jest wciśnięty
+  static unsigned long lastPressTime = 0;    // Zmienna do kontrolowania debouncingu (ostatni czas naciśnięcia)
+
+  // Sprawdzamy stan przycisku enkodera 1
+  /*int reading1 = digitalRead(SW_PIN1);
+  
+  // Debouncing dla przycisku enkodera 1
+  if (reading1 == LOW) // Przycisk jest wciśnięty (stan niski)
+  {  
+    if (millis() - lastDebounceTime > debounceDelay)
+    {
+      encoderButton1 = true;  // Ustawiamy flagę, że przycisk został wciśnięty
+      lastDebounceTime = millis();  // Aktualizujemy czas ostatniego debouncingu
+      Serial.println("Przycisk enkodera 1 wciśnięty");
+
+      // Zapisujemy czas pierwszego naciśnięcia
+      if (!isButtonPressed)
+      {
+        buttonPressTime = millis();
+        isButtonPressed = true;  // Ustawiamy flagę, że przycisk został wciśnięty
+      }
+    }
+  }
+  else
+  {
+    encoderButton1 = false;  // Przywracamy stan przycisku
+
+    // Sprawdzamy, czy przycisk był wciśnięty przez 3 sekundy
+    if (isButtonPressed && millis() - buttonPressTime >= 3000)
+    {
+      currentOption = BANK_LIST;  // Ustawienie listy banków do przewijania i wyboru
+
+      Serial.println("Wyświetlenie listy banków");
+      // Resetujemy flagę, aby nie powtarzać tej akcji
+      isButtonPressed = false;
+    }
+  }*/
+
+
+
+  
+  // Sprawdzamy stan przycisku enkodera 2
+  int reading2 = digitalRead(SW_PIN2);
+  
+  // Debouncing dla przycisku enkodera 2
+  if (reading2 == LOW) // Przycisk jest wciśnięty (stan niski)
+  {  
+    // Sprawdzamy, czy minął odpowiedni czas od ostatniego naciśnięcia przycisku
+    if (millis() - lastPressTime > debounceDelay)
+    {
+      encoderButton2 = true;  // Ustawiamy flagę, że przycisk został wciśnięty
+      lastPressTime = millis();  // Aktualizujemy czas ostatniego naciśnięcia
+
+      // Sprawdzamy, czy przycisk był wciśnięty przez 3 sekundy
+      if (!isButtonPressed)
+      {
+        buttonPressTime = millis();
+        isButtonPressed = true;
+      }
+
+      // Tylko raz na 3 sekundy
+      if (millis() - buttonPressTime >= 3000)
+      {
+        timeDisplay = false;
+        currentOption = BANK_LIST;  // Ustawienie listy banków do przewijania i wyboru
+
+        Serial.println("Wyświetlenie listy banków");
+        u8g2.clearBuffer();	
+        u8g2.setFont(u8g2_font_ncenB18_tr);
+        u8g2.drawStr(20, 40, "WYBIERZ BANK");
+        u8g2.sendBuffer();
+
+        // Resetujemy flagę, aby nie powtarzać tej akcji
+        isButtonPressed = false;
+      }
+    }
+  }
+  else
+  {
+    encoderButton2 = false;  // Przywracamy stan przycisku
+  }
+}
+
+
+
+
+
+
 // Funkcja do pobierania danych z API z serwera pogody openweathermap.org
 void getWeatherData()
 {
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
-  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -1706,6 +1802,9 @@ void setup()
   pinMode(DT_PIN1, INPUT);
   pinMode(CLK_PIN2, INPUT);
   pinMode(DT_PIN2, INPUT);
+    // Inicjalizacja przycisków enkoderów jako wejścia
+  pinMode(SW_PIN1, INPUT_PULLUP);
+  pinMode(SW_PIN2, INPUT_PULLUP);
 
   // Odczytaj początkowy stan pinu CLK enkodera
   prev_CLK_state1 = digitalRead(CLK_PIN1);
@@ -1791,6 +1890,8 @@ void loop()
   audio.loop();
   button1.loop();
   button2.loop();
+
+  handleButtons();
   
   /*CLK_state1 = digitalRead(CLK_PIN1);
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
@@ -1908,7 +2009,7 @@ void loop()
       printStationsToOLED();
     }
 
-    /*if (currentOption == BANK_LIST) // Przewijanie listy banków stacji radiowych
+    if (currentOption == BANK_LIST) // Przewijanie listy banków stacji radiowych
     {
       if (digitalRead(DT_PIN2) == HIGH)
       {
@@ -1926,18 +2027,17 @@ void loop()
           bank_nr = 1;
         }
       }
-      Serial.print("Numer banku: ");
-      Serial.println(bank_nr);
-      display.clearDisplay();
-      display.setTextSize(2);
-      display.setTextColor(SH110X_WHITE);
-      display.setCursor(25, 0);
-      display.println("Bank nr");
-      display.setTextSize(3);
-      display.setCursor(55, 30);
-      display.println(bank_nr);
-      display.display();
-    }*/
+      // Używamy funkcji String() do konwersji liczby na tekst
+      String bankNrStr = String(bank_nr);  // Zamiana liczby na ciąg znaków
+
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB18_tr);
+      u8g2.drawStr(40, 40, "NR BANKU ");
+
+      // Przekazujemy bankNrStr jako ciąg znaków
+      u8g2.drawStr(210, 40, bankNrStr.c_str());  // c_str() konwertuje String na const char*
+      u8g2.sendBuffer();
+    }
   }
   prev_CLK_state2 = CLK_state2;
 
@@ -2058,7 +2158,9 @@ void loop()
 
   if ((currentOption == BANK_LIST) && (button2.isPressed()))
   {
-    //display.clearDisplay();
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.sendBuffer();
     currentSelection = 0;
     firstVisibleLine = 0;
     station_nr = 1;

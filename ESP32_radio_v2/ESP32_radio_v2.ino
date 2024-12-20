@@ -34,10 +34,10 @@
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL3   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_04"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL4   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista4"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL5   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista5"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL6   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista6"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL7   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista7"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL4   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_05"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL5   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_06"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL6   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_07"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL7   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_08"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL8   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista8"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL9   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista9"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL10  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista10"     // Adres URL do pliku z listą stacji radiowych

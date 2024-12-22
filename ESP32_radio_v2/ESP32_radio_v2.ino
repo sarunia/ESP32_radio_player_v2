@@ -88,7 +88,6 @@ bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na 
 bool listedStations = false;      // Flaga określająca czy na ekranie jest pokazana lista stacji do wyboru
 bool menuEnable = false;          // Flaga określająca czy na ekranie można wyświetlić menu
 bool bankMenuEnable = false;      // Flaga określająca czy na ekranie jest wyświetlone menu wyboru banku
-unsigned long lastDebounceTime = 0;       // Czas ostatniego debouncingu
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -313,7 +312,7 @@ void switchWeatherData()
   u8g2.setFont(u8g2_font_spleen6x12_mr);
   if (timeDisplay == true)
   {
-  if (cycle == 0)
+    if (cycle == 0)
     {
       u8g2.drawStr(0, 62, "                                           ");
       u8g2.drawStr(0, 62, tempStr.c_str());
@@ -332,11 +331,12 @@ void switchWeatherData()
       u8g2.drawStr(115, 62, pressureStr.c_str());
     }
 
-    u8g2.sendBuffer();
+      u8g2.sendBuffer();
   }
   // Zmiana cyklu: przechodzimy do następnego zestawu danych
   cycle++;
-  if (cycle > 2) {
+  if (cycle > 2)
+  {
     cycle = 0;  // Wracamy do cyklu 0 po trzecim cyklu
   }
 }
@@ -404,7 +404,8 @@ void saveStationToEEPROM(const char* station)
       // Informacja o błędzie w przypadku zbyt długiego linku do stacji.
       Serial.println("Błąd: Link do stacji jest zbyt długi");
     }
-  } else
+  }
+  else
   {
     // Informacja o błędzie w przypadku osiągnięcia maksymalnej liczby stacji.
     Serial.println("Błąd: Osiągnięto maksymalną liczbę zapisanych stacji");
@@ -430,6 +431,9 @@ void changeStation()
     station[j] = EEPROM.read((station_nr - 1) * (MAX_LINK_LENGTH + 1) + 1 + j);
   }
 
+  // Skopiuj pierwsze 42 znaki do zmiennej stationName - będzie to wyświetlone w pierwszej linii na wyświetlaczu
+  stationName = String(station).substring(0, 42);
+
   // Ręczne przycinanie znaków na końcu linku
   int lastValidCharIndex = length - 1;
   while (lastValidCharIndex >= 0 && (station[lastValidCharIndex] < 33 || station[lastValidCharIndex] > 126))
@@ -438,21 +442,35 @@ void changeStation()
     lastValidCharIndex--;
   }
 
-  // Wydrukuj nazwę stacji i link na serialu
-  Serial.print("Aktualnie wybrana stacja: ");
-  Serial.println(station_nr);
-  Serial.print("Link do stacji: ");
-  Serial.println(station);
+  // Weryfikacja, czy w linku znajduje się "http" lub "https"
+  char* validLink = strstr(station, "http://");
+  if (validLink == NULL)
+  {
+    validLink = strstr(station, "https://");
+  }
 
-  // Skopiuj pierwsze 42 znaków do zmiennej stationName
-  stationName = String(station).substring(0, 42);
+  if (validLink != NULL) 
+  {
+    // Ustawienie station na początek właściwego linku
+    strcpy(station, validLink);
 
-  // Połącz z daną stacją
-  audio.connecttohost(station);
-  seconds = 0;
-  stationFromBuffer = station_nr;
-  bankFromBuffer = bank_nr;
-  saveStationOnSD();
+    // Wydrukuj nazwę stacji i link na serialu
+    Serial.print("Aktualnie wybrana stacja: ");
+    Serial.println(station_nr);
+    Serial.print("Link do stacji: ");
+    Serial.println(station);
+
+    // Połącz z daną stacją
+    audio.connecttohost(station);
+    seconds = 0;
+    stationFromBuffer = station_nr;
+    bankFromBuffer = bank_nr;
+    saveStationOnSD();
+  }
+  else
+  {
+    Serial.println("Błąd: link stacji nie zawiera 'http' lub 'https'");
+  }
 }
 
 

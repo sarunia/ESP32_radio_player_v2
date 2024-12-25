@@ -42,7 +42,7 @@
 #define STATIONS_URL9   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_10"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL10  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_11"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL11  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_12"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL12  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista12"     // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL12  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_13"     // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL13  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista13"     // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL14  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista14"     // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL15  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/lista15"     // Adres URL do pliku z listą stacji radiowych

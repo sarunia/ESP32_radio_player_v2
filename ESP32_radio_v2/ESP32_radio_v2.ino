@@ -25,8 +25,8 @@
 #define CLK_PIN1 6                // Podłączenie z pinu 6 do CLK na enkoderze prawym
 #define DT_PIN1  5                // Podłączenie z pinu 5 do DT na enkoderze prawym
 #define SW_PIN1  4                // Podłączenie z pinu 4 do SW na enkoderze prawym (przycisk)
-#define CLK_PIN2 10               // Podłączenie z pinu 10 do CLK na enkoderze
-#define DT_PIN2  11               // Podłączenie z pinu 11 do DT na enkoderze lewym
+#define CLK_PIN2 11               // Podłączenie z pinu 10 do CLK na enkoderze
+#define DT_PIN2  10               // Podłączenie z pinu 11 do DT na enkoderze lewym
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
 #define MAX_STATIONS 95           // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define MAX_LINK_LENGTH 110       // Maksymalna długość linku do stacji radiowej
@@ -50,10 +50,6 @@
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
-int button_S1 = 17;               // Przycisk S1 podłączony do pinu 17
-int button_S2 = 18;               // Przycisk S2 podłączony do pinu 18
-int button_S3 = 15;               // Przycisk S3 podłączony do pinu 15
-int button_S4 = 16;               // Przycisk S4 podłączony do pinu 16
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
 int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrocenia na ekran po bezczynności
 int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
@@ -114,7 +110,11 @@ String windGustStr;       // Zmienna do przechowywania prędkości porywów wiat
 
 File myFile; // Uchwyt pliku
 
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI dla wyświetlacza
+
+// Konfiguracja nowego SPI z wybranymi pinami dla czytnika kart SD
+SPIClass customSPI = SPIClass(HSPI); // Używamy HSPI, ale z własnymi pinami
+const int SD_CS_PIN = 47;  // Pin CS dla czytnika SD
 
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
@@ -300,10 +300,10 @@ void updateWeather()
   Serial.println(" m/s");
   windStr = "Wiatr: " + String(windSpeed) + " m/s";
   
-  Serial.print("Podmuchy wiatru: ");
+  Serial.print("Porywy wiatru: ");
   Serial.print(windGust, 2);
   Serial.println(" m/s");
-  windGustStr = "W podmuchach: " + String(windGust) + " m/s";
+  windGustStr = "W porywach: " + String(windGust) + " m/s";
 }
 
 // Funkcja do przełączania między różnymi danymi pogodowymi, które są wyświetlane na ekranie
@@ -997,32 +997,22 @@ void displayMenu()
 {
   timeDisplay = false;
   menuEnable = true;
-  /*display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(35, 0);
-  display.println("MENU");
-  display.setTextSize(1);
-  display.setCursor(0, 20);
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_spleen8x16_mr);
+  u8g2.drawStr(65, 20, "MENU");
+
   switch (currentOption)
   {
     case PLAY_FILES:
-      display.println(">> Odtwarzacz plik" + String((char)0x0F) + "w");
-      display.println("   Radio internetowe");
-      display.println("   Lista bank"  + String((char)0x0F) + "w");
+      u8g2.drawStr(0, 40, ">> Odtwarzacz plikow");
+      u8g2.drawStr(0, 60, "   Radio internetowe");
       break;
     case INTERNET_RADIO:
-      display.println("   Odtwarzacz plik" + String((char)0x0F) + "w");
-      display.println(">> Radio internetowe");
-      display.println("   Lista bank"  + String((char)0x0F) + "w");
-      break;
-    case BANK_LIST:
-      display.println("   Odtwarzacz plik" + String((char)0x0F) + "w");
-      display.println("   Radio internetowe");
-      display.println(">> Lista bank"  + String((char)0x0F) + "w");
+      u8g2.drawStr(0, 40, "   Odtwarzacz plikow");
+      u8g2.drawStr(0, 60, ">> Radio internetowe");
       break;
   }
-  display.display();*/
+  u8g2.sendBuffer();
 }
 
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
@@ -1476,11 +1466,11 @@ void playFromSelectedFolder()
 }*/
 
 
-// Funkcja do wyświetlania listy stacji radiowych
+// Funkcja do wyświetlania listy stacji radiowych z opcją wyboru poprzez zaznaczanie w negatywie
 void displayStations()
 {
   u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej zawartości
-  u8g2.setCursor(50, 10);  // Ustaw pozycję kursora (x=0, y=10) dla nagłówka
+  u8g2.setCursor(60, 10);  // Ustaw pozycję kursora (x=60, y=10) dla nagłówka
   u8g2.print("STACJE RADIOWE    ");  // Wyświetl nagłówek "STACJE RADIOWE"
   u8g2.print(String(station_nr) + " / " + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
   
@@ -1523,13 +1513,11 @@ void displayStations()
 
   // Przywróć domyślne ustawienia koloru rysowania (biały tekst na czarnym tle)
   u8g2.setDrawColor(1);  // Biały kolor rysowania
-
   u8g2.sendBuffer();  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
 }
 
-
-
-void updateTimer()  // Wywoływana co sekundę przez timer
+// Funkcja wywoływana co sekundę przez timer do aktualizacji czasu na wyświetlaczu
+void updateTimer()  
 {
   // Wypełnij spacjami, aby wyczyścić pole
   u8g2.drawStr(170, 51, "              ");
@@ -1751,19 +1739,29 @@ void setup()
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT); // Konfiguruj pinout dla interfejsu I2S audio
   audio.setVolume(volumeValue); // Ustaw głośność na podstawie wartości zmiennej volumeValue w zakresie 0...21
 
-  // Inicjalizuj interfejs SPI dla obsługi czytnika kart SD
+  // Inicjalizuj interfejs SPI wyświetlacza
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
   SPI.setFrequency(1000000);
 
-  // Inicjalizuj komunikację szeregową (Serial)
+  // Inicjalizuj komunikację szeregową
   Serial.begin(115200);
+
+  // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD
+  customSPI.begin(45, 21, 48, SD_CS_PIN); // SCLK = 45, MISO = 21, MOSI = 48, CS = 47
+
+  // Inicjalizacja karty SD
+  if (!SD.begin(SD_CS_PIN, customSPI))
+  {
+    Serial.println("Błąd inicjalizacji karty SD!");
+    return;
+  }
+  Serial.println("Karta SD zainicjalizowana pomyślnie.");
   
   // Inicjalizuj pamięć EEPROM z odpowiednim rozmiarem
   EEPROM.begin((MAX_STATIONS * (MAX_LINK_LENGTH + 1)));
 
   // Inicjalizuj wyświetlacz i odczekaj 250 milisekund na włączenie
   u8g2.begin();
-  //u8g2.setBusClock(20000000); // Ustawienie prędkości SPI na 20 MHz
   delay(250);
   
   u8g2.clearBuffer();	
@@ -1789,7 +1787,7 @@ void setup()
     u8g2.sendBuffer();
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     timer1.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
-    timer2.attach(60, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 60 sekund
+    timer2.attach(300, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 5 minut
     timer3.attach(10, switchWeatherData);   // Ustaw timer, aby wywoływał funkcję switchWeatherData co 10 sekund
     fetchStationsFromServer();
     changeStation();
@@ -1818,7 +1816,7 @@ void loop()
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
 
-  /*CLK_state1 = digitalRead(CLK_PIN1);
+  CLK_state1 = digitalRead(CLK_PIN1);
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
   {
     timeDisplay = false;
@@ -1886,30 +1884,29 @@ void loop()
       Serial.print("Wartość głośności: ");
       Serial.println(volumeValue);
       audio.setVolume(volumeValue); // zakres 0...21
-      display.clearDisplay();
-      display.setTextSize(2);
-      display.setTextColor(SH110X_WHITE);
-      display.setCursor(4, 0);
-      display.println("Volume set");
-      display.setTextSize(3);
-      display.setCursor(48, 30);
-      display.println(volumeValue);
-      display.display();
+
+      // Używamy funkcji String() do konwersji liczby na tekst
+      String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB14_tr);
+      u8g2.drawStr(65, 25, "VOLUME SET");
+      u8g2.drawStr(115, 50, volumeValueStr.c_str());
+      u8g2.sendBuffer();
     }
   }
-  prev_CLK_state1 = CLK_state1;*/
+  prev_CLK_state1 = CLK_state1;
 
-  CLK_state2 = digitalRead(CLK_PIN2);
-  if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH) 
+  CLK_state2 = digitalRead(CLK_PIN2);  // Odczytanie aktualnego stanu pinu CLK enkodera 2
+  if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki
   {
-    timeDisplay = false;
-    displayActive = true;
-    displayStartTime = millis();
+    timeDisplay = false;  // Wyłączanie wyświetlania czasu
+    displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
+    displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
 
     if (currentOption == INTERNET_RADIO)  // Przewijanie listy stacji radiowych
     {
       station_nr = currentSelection + 1;
-      if (digitalRead(DT_PIN2) == HIGH)
+      if (digitalRead(DT_PIN2) == HIGH)  // Obracanie w lewo
       {
         station_nr--;
         if (station_nr < 1)
@@ -1918,9 +1915,9 @@ void loop()
         }
         Serial.print("Numer stacji do tyłu: ");
         Serial.println(station_nr);
-        scrollUp();
+        scrollUp();  // Wywołanie funkcji przewijania w górę
       }
-      else
+      else  // Obracanie w prawo
       {
         station_nr++;
         if (station_nr > stationsCount)
@@ -1929,14 +1926,14 @@ void loop()
         }
         Serial.print("Numer stacji do przodu: ");
         Serial.println(station_nr);
-        scrollDown();
+        scrollDown();  // Wywołanie funkcji przewijania w dół
       }
-      displayStations();
+      displayStations();  // Aktualizacja wyświetlacza z listą stacji
     }
 
     if ((currentOption == BANK_LIST) && (bankMenuEnable == true))  // Przewijanie listy banków stacji radiowych
     {
-      if (digitalRead(DT_PIN2) == HIGH)
+      if (digitalRead(DT_PIN2) == HIGH)  // Obracanie w lewo
       {
         bank_nr--;
         if (bank_nr < 1)
@@ -1944,7 +1941,7 @@ void loop()
           bank_nr = 16;
         }
       } 
-      else
+      else  // Obracanie w prawo
       {
         bank_nr++;
         if (bank_nr > 16)
@@ -1953,20 +1950,21 @@ void loop()
         }
       }
       // Używamy funkcji String() do konwersji liczby na tekst
-      String bankNrStr = String(bank_nr);  // Zamiana liczby na ciąg znaków
+      String bankNrStr = String(bank_nr);  // Zamiana liczby banku na ciąg znaków
 
       u8g2.clearBuffer();
       u8g2.setFont(u8g2_font_ncenB18_tr);
       u8g2.drawStr(40, 40, "NR  BANKU ");
 
-      // Przekazujemy bankNrStr jako ciąg znaków
-      u8g2.drawStr(210, 40, bankNrStr.c_str());  // c_str() konwertuje String na const char*
+      // Przekazujemy bankNrStr jako ciąg znaków do wyświetlacza
+      u8g2.drawStr(210, 40, bankNrStr.c_str());  // Wyświetlenie numeru banku
       u8g2.sendBuffer();
     }
   }
-  prev_CLK_state2 = CLK_state2;
+  prev_CLK_state2 = CLK_state2;  // Zapisanie aktualnego stanu CLK jako poprzedni stan
 
-  if (displayActive && (millis() - displayStartTime >= displayTimeout))   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
+  // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
+  if (displayActive && (millis() - displayStartTime >= displayTimeout))   
   {
     // Parametry
     const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
@@ -2042,19 +2040,19 @@ void loop()
     currentOption = INTERNET_RADIO;
   }
   
-  /*if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))
+  if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))
   {
     if (!SD.begin(SD_CS))
     {
       Serial.println("Błąd inicjalizacji karty SD!");
       return;
     }
-    display.clearDisplay();
+    /*display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SH110X_WHITE);
     display.setCursor(0, 0);
     display.println("   LISTA KATALOG" + String((char)0x1F) + "W"); // Wyświetla komunikat "LISTA KATALOGÓW" na ekranie, 0x1F reprezentuje literę 'Ó'
-    display.display();
+    display.display();*/
     folderIndex = 1;
     currentSelection = 0;
     firstVisibleLine = 0;
@@ -2074,7 +2072,7 @@ void loop()
     menuEnable = true;
     displayActive = true;
     displayStartTime = millis();
-  }*/
+  }
 
   if ((currentOption == INTERNET_RADIO) && (button2.isReleased()))
   {

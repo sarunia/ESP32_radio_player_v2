@@ -1,4 +1,3 @@
-
 #include "Arduino.h"              // Standardowy nagłówek Arduino, który dostarcza podstawowe funkcje i definicje
 #include "Audio.h"                // Biblioteka do obsługi funkcji związanych z dźwiękiem i audio
 #include "SPI.h"                  // Biblioteka do obsługi komunikacji SPI
@@ -30,6 +29,7 @@
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
 #define MAX_STATIONS 100          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
+#define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
 #define STATIONS_URL    "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
@@ -46,7 +46,6 @@
 #define STATIONS_URL13  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_14"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL14  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_15"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL15  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_16"      // Adres URL do pliku z listą stacji radiowych
-#define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
@@ -66,7 +65,7 @@ int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas p
 int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę plików w folderze
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
-const int maxVisibleLines = 5;    // Maksymalna liczba widocznych linii na ekranie OLED
+int maxVisibleLines = 5;          // Maksymalna liczba widocznych linii na ekranie OLED
 bool button_1 = false;            // Flaga określająca stan przycisku 1
 bool button_2 = false;            // Flaga określająca stan przycisku 2
 bool button_3 = false;            // Flaga określająca stan przycisku 3
@@ -239,7 +238,7 @@ void getWeatherData()
     u8g2.drawStr(0, 62, "Brak polaczenia z serwerem pogody");
     u8g2.sendBuffer();  
   }
-
+  
   http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
 }
 
@@ -496,7 +495,7 @@ void changeStation()
 }
 
 
-// Funkcja do pobierania listy stacji radiowych z serwera
+// Funkcja do pobierania listy stacji radiowych z serwera i zapisania ich w wybranym banku na karcie SD
 void fetchStationsFromServer()
 {
   // Utwórz obiekt klienta HTTP
@@ -796,61 +795,6 @@ void audio_info(const char *info)
   }*/
 }
 
-// Funkcja do przetwarzania otrzymanego tekstu na polskie znaki - aktualnie nie działa z u8g2, do sprawdzenia poźniej
-/*void processText(String &text)
-{
-  for (int i = 0; i < text.length(); i++)
-  {
-    switch (text[i])
-    {
-      case (char)0xC2:
-        switch (text[i+1])
-        {
-          case (char)0xB3: text.setCharAt(i, 0x10); break; // Zamiana na pojedynczy znak "ł"
-        }
-        text.remove(i+1, 1); // Usunięcie kolejnego bajtu
-        break;
-      case (char)0xC3:
-        switch (text[i+1])
-        {
-          case (char)0xB1: text.setCharAt(i, 0x0E); break; // Zamiana na pojedynczy znak "ń"
-          case (char)0xB3: text.setCharAt(i, 0x0F); break; // Zamiana na pojedynczy znak "ó"
-          case (char)0xBA: text.setCharAt(i, 0x16); break; // Zamiana na pojedynczy znak "ź"
-          case (char)0xBB: text.setCharAt(i, 0x1D); break; // Zamiana na pojedynczy znak "Ż"
-          
-        }
-        text.remove(i+1, 1); // Usunięcie kolejnego bajtu
-        break;
-      case (char)0xC4:
-        switch (text[i+1])
-        {
-          case (char)0x85: text.setCharAt(i, 0x11); break; // Zamiana na pojedynczy znak "ą"
-          case (char)0x99: text.setCharAt(i, 0x13); break; // Zamiana na pojedynczy znak "ę"
-          case (char)0x87: text.setCharAt(i, 0x14); break; // Zamiana na pojedynczy znak "ć"
-          case (char)0x84: text.setCharAt(i, 0x19); break; // Zamiana na pojedynczy znak "Ą"
-          case (char)0x98: text.setCharAt(i, 0x1A); break; // Zamiana na pojedynczy znak "Ę"
-          case (char)0x86: text.setCharAt(i, 0x1B); break; // Zamiana na pojedynczy znak "Ć"
-        }
-        text.remove(i+1, 1); // Usunięcie kolejnego bajtu
-        break;
-      case (char)0xC5:
-        switch (text[i+1])
-        {
-          case (char)0x82: text.setCharAt(i, 0x10); break; // Zamiana na pojedynczy znak "ł"
-          case (char)0x84: text.setCharAt(i, 0x0E); break; // Zamiana na pojedynczy znak "ń"
-          case (char)0x9B: text.setCharAt(i, 0x12); break; // Zamiana na pojedynczy znak "ś"
-          case (char)0xBB: text.setCharAt(i, 0x1D); break; // Zamiana na pojedynczy znak "Ż"
-          case (char)0xBC: text.setCharAt(i, 0x15); break; // Zamiana na pojedynczy znak "ż"
-          case (char)0x83: text.setCharAt(i, 0x17); break; // Zamiana na pojedynczy znak "Ń"
-          case (char)0x9A: text.setCharAt(i, 0x18); break; // Zamiana na pojedynczy znak "Ś"
-          case (char)0x81: text.setCharAt(i, 0x1C); break; // Zamiana na pojedynczy znak "Ł"
-          case (char)0xB9: text.setCharAt(i, 0x1E); break; // Zamiana na pojedynczy znak "Ź"
-        }
-        text.remove(i+1, 1); // Usunięcie kolejnego bajtu
-        break;
-    }
-  }
-}*/
 
 void audio_id3data(const char *info)
 {
@@ -880,8 +824,6 @@ void audio_id3data(const char *info)
       Serial.print(" "); // Dodanie spacji po każdym bajcie
     }
     Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
-
-    //processText(artistString);
   }
   
   // Znajdź pozycję "Title: " lub "TITLE " w tekście
@@ -907,8 +849,6 @@ void audio_id3data(const char *info)
       Serial.print(" "); // Dodanie spacji po każdym bajcie
     }
     Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
-
-    //processText(titleString);
   }
   
   /*display.clearDisplay();
@@ -979,8 +919,6 @@ void audio_showstreamtitle(const char *info)
     Serial.print(" "); // Dodanie spacji po każdym bajcie
   }
   Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
-
-  //processText(stationString);   // Wywołuje funkcję `processText`, która przetwarza tekst zawarty w `stationString`
 
   // Parametry
   const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
@@ -1133,8 +1071,6 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
             Serial.print(" "); // Dodanie spacji po każdym bajcie
           }
           Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
-
-          //processText(fullPath);
           
           // Ustaw pozycję kursora na ekranie OLED
           //display.setCursor(0, i * 9);
@@ -1177,11 +1113,11 @@ void scrollUp()
       firstVisibleLine = currentSelection;
     }
   }
-  // Dodaj dodatkowy wydruk do diagnostyki
   Serial.print("Scroll Up: CurrentSelection = ");
   Serial.println(currentSelection);
 }
 
+// Funkcja do przewijania w dół
 void scrollDown()
 {
   if (currentSelection < maxSelection())
@@ -1191,7 +1127,6 @@ void scrollDown()
     {
       firstVisibleLine++;
     }
-    // Dodaj dodatkowy wydruk do diagnostyki
     Serial.print("Scroll Down: CurrentSelection = ");
     Serial.println(currentSelection);
   }
@@ -1622,6 +1557,7 @@ void updateTimer()
       display.print(timeString);
       display.display();
     }*/
+
     if ((currentOption == INTERNET_RADIO) && ((mp3 == true) || (flac == true) || (aac == true)))
     {
       // Struktura przechowująca informacje o czasie
@@ -1639,14 +1575,13 @@ void updateTimer()
       char timeString[9]; // Bufor przechowujący czas w formie tekstowej
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-      //u8g2.setFont(u8g2_font_ncenB08_tr);
       u8g2.drawStr(205, 51, timeString);
       u8g2.sendBuffer();
     }
   }
 }
 
-// Funkcja do zapisywania danych stacji radiowej na karcie SD
+// Funkcja do zapisywania numeru stacji i numeru banku na karcie SD
 void saveStationOnSD()
 {
   // Sprawdź, czy plik station_nr.txt istnieje
@@ -1722,7 +1657,7 @@ void saveStationOnSD()
   }
 }
 
-// Funkcja do odczytu danych stacji radiowej z karty SD
+// Funkcja do odczytywania numeru stacji i numeru banku z karty SD
 void readStationFromSD()
 {
   // Sprawdź, czy karta SD jest dostępna
@@ -1819,7 +1754,7 @@ void setup()
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
   
   // Inicjalizuj pamięć EEPROM z odpowiednim rozmiarem
-  EEPROM.begin(MAX_STATIONS * STATION_NAME_LENGTH);
+  EEPROM.begin(MAX_STATIONS * STATION_NAME_LENGTH); // 100 * 42
 
   // Inicjalizuj wyświetlacz i odczekaj 250 milisekund na włączenie
   u8g2.begin();
@@ -1836,9 +1771,11 @@ void setup()
 
   // Inicjalizacja WiFiManagera
   WiFiManager wifiManager;
+
+  // Odczytaj numer banku i numer stacji z karty SD
   readStationFromSD();
 
-  // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią, jeśli konieczne
+  // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią
   if (wifiManager.autoConnect("ESP Internet Radio"))
   {
     Serial.println("Połączono z siecią WiFi");
@@ -1857,16 +1794,6 @@ void setup()
   else
   {
     Serial.println("Brak połączenia z siecią WiFi");
-    /*display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(SH110X_WHITE);
-    display.setCursor(35, 5);
-    display.println("Wi-Fi");
-    display.setCursor(40, 25);
-    display.println("not");
-    display.setCursor(10, 45);
-    display.println("connected");
-    display.display();*/
   }
 }
 
@@ -1877,8 +1804,8 @@ void loop()
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
 
-  CLK_state1 = digitalRead(CLK_PIN1);
-  if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
+  CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
+  if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki
   {
     timeDisplay = false;
     displayActive = true;
@@ -1929,22 +1856,22 @@ void loop()
       if (digitalRead(DT_PIN1) == HIGH)
       {
         volumeValue--;
-        if (volumeValue < 5)
+        if (volumeValue < 3)
         {
-          volumeValue = 5;
+          volumeValue = 3;
         }
       } 
       else
       {
         volumeValue++;
-        if (volumeValue > 15)
+        if (volumeValue > 18)
         {
-          volumeValue = 15;
+          volumeValue = 18;
         }
       }
       Serial.print("Wartość głośności: ");
       Serial.println(volumeValue);
-      audio.setVolume(volumeValue); // zakres 0...21
+      audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
 
       // Używamy funkcji String() do konwersji liczby na tekst
       String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
@@ -2080,20 +2007,6 @@ void loop()
     }
     u8g2.sendBuffer();
 
-    /*display.setCursor(102, 37);
-    if (mp3 == true)
-    {
-      display.print("MP3");
-    }
-    if (flac == true)
-    {
-      display.print("FLAC");
-    }
-    if (aac == true)
-    {
-      display.print("AAC");
-    }*/
-    
     displayActive = false;
     timeDisplay = true;
     listedStations = false;

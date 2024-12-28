@@ -414,62 +414,84 @@ void saveStationToEEPROM(const char* station)
 
 // Funkcja odpowiedzialna za zmianę aktualnie wybranej stacji radiowej.
 void changeStation()
-{  
+{
   mp3 = flac = aac = false;
   stationString.remove(0);  // Usunięcie wszystkich znaków z obiektu stationString
 
-  // Odczytaj link stacji o aktualnym numerze station_nr
-  char station[MAX_LINK_LENGTH + 1];
-  memset(station, 0, sizeof(station));
+  // Tworzymy nazwę pliku banku
+  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
 
-  // Odczytaj długość linku
-  int length = EEPROM.read((station_nr - 1) * (MAX_LINK_LENGTH + 1));
-
-  // Odczytaj link jako bajty
-  for (int j = 0; j < length; j++)
+  // Sprawdzamy, czy plik istnieje
+  if (!SD.exists(fileName))
   {
-    station[j] = EEPROM.read((station_nr - 1) * (MAX_LINK_LENGTH + 1) + 1 + j);
+    Serial.println("Błąd: Plik banku nie istnieje.");
+    return;
   }
 
-  // Skopiuj pierwsze 42 znaki do zmiennej stationName - będzie to wyświetlone w pierwszej linii na wyświetlaczu
-  stationName = String(station).substring(0, 42);
-
-  // Ręczne przycinanie znaków na końcu linku
-  int lastValidCharIndex = length - 1;
-  while (lastValidCharIndex >= 0 && (station[lastValidCharIndex] < 33 || station[lastValidCharIndex] > 126))
+  // Otwieramy plik w trybie do odczytu
+  File bankFile = SD.open(fileName, FILE_READ);
+  if (!bankFile)
   {
-    station[lastValidCharIndex] = '\0';
-    lastValidCharIndex--;
+    Serial.println("Błąd: Nie można otworzyć pliku banku.");
+    return;
+  }
+
+  // Przechodzimy do odpowiedniego wiersza pliku
+  int currentLine = 0;
+  String stationUrl = "";
+  
+  while (bankFile.available())
+  {
+    String line = bankFile.readStringUntil('\n');
+    currentLine++;
+
+    if (currentLine == station_nr)
+    {
+      // Wyciągnij pierwsze 42 znaki i przypisz do stationName
+      stationName = line.substring(0, 42);  // Skopiuj pierwsze 42 znaki z linii
+      Serial.print("Nazwa stacji: ");
+      Serial.println(stationName);
+
+      // Znajdź część URL w linii, np. po numerze stacji
+      int urlStart = line.indexOf("http");  // Szukamy miejsca, gdzie zaczyna się URL
+      if (urlStart != -1)
+      {
+        stationUrl = line.substring(urlStart);  // Wyciągamy URL od "http"
+        stationUrl.trim();  // Usuwamy białe znaki na początku i końcu
+      }
+      break;
+    }
+  }
+
+  bankFile.close();  // Zamykamy plik po odczycie
+
+  // Sprawdzamy, czy znaleziono stację
+  if (stationUrl.isEmpty())
+  {
+    Serial.println("Błąd: Nie znaleziono stacji dla podanego numeru.");
+    return;
   }
 
   // Weryfikacja, czy w linku znajduje się "http" lub "https"
-  char* validLink = strstr(station, "http://");
-  if (validLink == NULL)
+  if (stationUrl.startsWith("http://") || stationUrl.startsWith("https://")) 
   {
-    validLink = strstr(station, "https://");
-  }
-
-  if (validLink != NULL) 
-  {
-    // Ustawienie station na początek właściwego linku
-    strcpy(station, validLink);
-
     // Wydrukuj nazwę stacji i link na serialu
     Serial.print("Aktualnie wybrana stacja: ");
     Serial.println(station_nr);
     Serial.print("Link do stacji: ");
-    Serial.println(station);
+    Serial.println(stationUrl);
 
     // Połącz z daną stacją
-    audio.connecttohost(station);
+    audio.connecttohost(stationUrl.c_str());
     seconds = 0;
     stationFromBuffer = station_nr;
     bankFromBuffer = bank_nr;
     saveStationOnSD();
-  }
-  else
+  } 
+  else 
   {
     Serial.println("Błąd: link stacji nie zawiera 'http' lub 'https'");
+    Serial.println("Odczytany URL: " + stationUrl);
   }
 }
 
@@ -539,6 +561,31 @@ void fetchStationsFromServer()
       return;
   }
 
+  // Tworzenie nazwy pliku dla danego banku
+  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
+  
+  // Sprawdzenie, czy plik istnieje
+  if (SD.exists(fileName))
+  {
+    Serial.println("Plik banku " + fileName + " już istnieje.");
+  }
+  else
+  {
+    // Próba utworzenia pliku, jeśli nie istnieje
+    File bankFile = SD.open(fileName, FILE_WRITE);
+    
+    if (bankFile)
+    {
+      Serial.println("Utworzono plik banku: " + fileName);
+      bankFile.close();  // Zamykanie pliku po utworzeniu
+    }
+    else
+    {
+      Serial.println("Błąd: Nie można utworzyć pliku banku: " + fileName);
+      return;  // Przerwij dalsze działanie, jeśli nie udało się utworzyć pliku
+    }
+  }
+
   // Inicjalizuj żądanie HTTP do podanego adresu URL
   http.begin(url);
 
@@ -555,6 +602,20 @@ void fetchStationsFromServer()
     // Pobierz zawartość odpowiedzi HTTP w postaci tekstu
     String payload = http.getString();
     Serial.println("Stacje pobrane z serwera:");
+    Serial.println(payload);  // Wyświetlenie pobranych danych (payload)
+
+    // Otwórz plik w trybie zapisu, aby zapisać payload
+    File bankFile = SD.open(fileName, FILE_WRITE);
+    if (bankFile)
+    {
+      bankFile.println(payload);  // Zapisz dane do pliku
+      bankFile.close();  // Zamknij plik po zapisaniu
+      Serial.println("Dane zapisane do pliku: " + fileName);
+    }
+    else
+    {
+      Serial.println("Błąd: Nie można otworzyć pliku do zapisu: " + fileName);
+    }
 
     // Zapisz każdą niepustą stację do pamięci EEPROM z indeksem
     int startIndex = 0;
@@ -570,8 +631,7 @@ void fetchStationsFromServer()
       // Sprawdź, czy stacja nie jest pusta, a następnie przetwórz i zapisz
       if (!station.isEmpty())
       {
-        //Serial.print("Nowa stacja: ");
-        //Serial.println(station);
+        // Zapisz stację do pliku na karcie SD
         sanitizeAndSaveStation(station.c_str());
       }
       
@@ -588,6 +648,7 @@ void fetchStationsFromServer()
   // Zakończ połączenie HTTP
   http.end();
 }
+
 
 // Funkcja przetwarza i zapisuje stację do pamięci EEPROM
 void sanitizeAndSaveStation(const char* station)

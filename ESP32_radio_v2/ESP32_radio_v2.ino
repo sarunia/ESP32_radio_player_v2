@@ -28,8 +28,8 @@
 #define CLK_PIN2 11               // Podłączenie z pinu 10 do CLK na enkoderze
 #define DT_PIN2  10               // Podłączenie z pinu 11 do DT na enkoderze lewym
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
-#define MAX_STATIONS 95           // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
-#define MAX_LINK_LENGTH 110       // Maksymalna długość linku do stacji radiowej
+#define MAX_STATIONS 100          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
+#define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
 #define STATIONS_URL    "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
@@ -124,7 +124,7 @@ Ticker timer2;                            // Timer do getWeatherData co 60s
 Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii co 10s
 WiFiClient client;                        // Obiekt do obsługi połączenia WiFi dla klienta HTTP
 
-char stations[MAX_STATIONS][MAX_LINK_LENGTH + 1];   // Tablica przechowująca linki do stacji radiowych (jedna na stację) +1 dla terminatora null
+char stations[MAX_STATIONS][STATION_NAME_LENGTH];   // Tablica przechowująca nazwy stacji wraz z bankiem i numerem stacji
 
 const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do synchronizacji czasu
 const long  gmtOffset_sec = 3600;            // Przesunięcie czasu UTC w sekundach
@@ -379,15 +379,15 @@ void saveStationToEEPROM(const char* station)
     int length = strlen(station);
 
     // Sprawdź, czy długość linku nie przekracza ustalonego maksimum.
-    if (length <= MAX_LINK_LENGTH)
+    if (length <= STATION_NAME_LENGTH)
     {
       // Zapisz długość linku jako pierwszy bajt.
-      EEPROM.write(stationsCount * (MAX_LINK_LENGTH + 1), length);
+      EEPROM.write(stationsCount * (STATION_NAME_LENGTH + 1), length);
 
       // Zapisz link jako kolejne bajty w pamięci EEPROM.
       for (int i = 0; i < length; i++)
       {
-        EEPROM.write(stationsCount * (MAX_LINK_LENGTH + 1) + 1 + i, station[i]);
+        EEPROM.write(stationsCount * (STATION_NAME_LENGTH + 1) + 1 + i, station[i]);
       }
 
       // Potwierdź zapis do pamięci EEPROM.
@@ -452,7 +452,7 @@ void changeStation()
       Serial.print("Nazwa stacji: ");
       Serial.println(stationName);
 
-      // Znajdź część URL w linii, np. po numerze stacji
+      // Znajdź część URL w linii
       int urlStart = line.indexOf("http");  // Szukamy miejsca, gdzie zaczyna się URL
       if (urlStart != -1)
       {
@@ -601,8 +601,8 @@ void fetchStationsFromServer()
   {
     // Pobierz zawartość odpowiedzi HTTP w postaci tekstu
     String payload = http.getString();
-    Serial.println("Stacje pobrane z serwera:");
-    Serial.println(payload);  // Wyświetlenie pobranych danych (payload)
+    //Serial.println("Stacje pobrane z serwera:");
+    //Serial.println(payload);  // Wyświetlenie pobranych danych (payload)
 
     // Otwórz plik w trybie zapisu, aby zapisać payload
     File bankFile = SD.open(fileName, FILE_WRITE);
@@ -654,13 +654,13 @@ void fetchStationsFromServer()
 void sanitizeAndSaveStation(const char* station)
 {
   // Bufor na przetworzoną stację - o jeden znak dłuższy niż maksymalna długość linku
-  char sanitizedStation[MAX_LINK_LENGTH + 1];
+  char sanitizedStation[STATION_NAME_LENGTH + 1];
   
   // Indeks pomocniczy dla przetwarzania
   int j = 0;
 
   // Przeglądaj każdy znak stacji i sprawdź czy jest to drukowalny znak ASCII
-  for (int i = 0; i < MAX_LINK_LENGTH && station[i] != '\0'; i++)
+  for (int i = 0; i < STATION_NAME_LENGTH && station[i] != '\0'; i++)
   {
     // Sprawdź, czy znak jest drukowalnym znakiem ASCII
     if (isprint(station[i]))
@@ -1540,16 +1540,16 @@ void displayStations()
   // Wyświetlanie stacji, zaczynając od drugiej linii (y=21)
   for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleLines, stationsCount); i++)
   {
-    char station[MAX_LINK_LENGTH + 1];  // Tablica na nazwę stacji o maksymalnej długości zdefiniowanej przez MAX_LINK_LENGTH
+    char station[STATION_NAME_LENGTH + 1];  // Tablica na nazwę stacji o maksymalnej długości zdefiniowanej przez STATION_NAME_LENGTH
     memset(station, 0, sizeof(station));  // Wyczyszczenie tablicy zerami przed zapisaniem danych
     
     // Odczytaj długość nazwy stacji z EEPROM dla bieżącego indeksu stacji
-    int length = EEPROM.read(i * (MAX_LINK_LENGTH + 1));
+    int length = EEPROM.read(i * (STATION_NAME_LENGTH + 1));
 
-    // Odczytaj nazwę stacji z EEPROM jako ciąg bajtów, maksymalnie do MAX_LINK_LENGTH
-    for (int j = 0; j < min(length, MAX_LINK_LENGTH); j++)
+    // Odczytaj nazwę stacji z EEPROM jako ciąg bajtów, maksymalnie do STATION_NAME_LENGTH
+    for (int j = 0; j < min(length, STATION_NAME_LENGTH); j++)
     {
-      station[j] = EEPROM.read(i * (MAX_LINK_LENGTH + 1) + 1 + j);  // Odczytaj znak po znaku nazwę stacji
+      station[j] = EEPROM.read(i * (STATION_NAME_LENGTH + 1) + 1 + j);  // Odczytaj znak po znaku nazwę stacji
     }
 
     // Sprawdź, czy bieżąca stacja to ta, która jest aktualnie zaznaczona
@@ -1819,7 +1819,7 @@ void setup()
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
   
   // Inicjalizuj pamięć EEPROM z odpowiednim rozmiarem
-  EEPROM.begin((MAX_STATIONS * (MAX_LINK_LENGTH + 1)));
+  EEPROM.begin(MAX_STATIONS * STATION_NAME_LENGTH);
 
   // Inicjalizuj wyświetlacz i odczekaj 250 milisekund na włączenie
   u8g2.begin();

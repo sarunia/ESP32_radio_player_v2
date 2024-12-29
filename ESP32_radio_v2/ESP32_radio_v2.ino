@@ -890,7 +890,14 @@ void audio_id3data(const char *info)
 
     u8g2.setFont(u8g2_font_spleen6x12_mr);
     u8g2.setCursor(0, 10);
-    u8g2.print("              ODTWARZAM PLIK:             ");
+    u8g2.print("ODTWARZANIE PLIKU ");
+    u8g2.print(fileIndex);
+    u8g2.print("/");
+    u8g2.print(totalFilesInFolder);
+    u8g2.print(" FOLDER ");
+    u8g2.print(folderIndex);
+    u8g2.print("/");
+    u8g2.print(directoryCount);
 
     if (artistString.length() > 33)
     {

@@ -88,6 +88,7 @@ unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ek
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
 
+
 String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
 String stationName;                       // Nazwa aktualnie wybranej stacji radiowej
@@ -98,6 +99,7 @@ String bitsPerSampleString;               // Zmienna przechowująca informację 
 String artistString;                      // Zmienna przechowująca informację o wykonawcy
 String titleString;                       // Zmienna przechowująca informację o tytule utworu
 String fileNameString;                    // Zmienna przechowująca informację o nazwie pliku
+String folderNameString;                  // Zmienna przechowująca informację o nazwie folderu
 
 // Przygotowanie danych pogody do wyświetlenia
 String tempStr;           // Zmienna do przechowywania temperatury
@@ -150,33 +152,77 @@ bool isAudioFile(const char *filename)
 // Funkcja do obsługi przycisków enkoderów, odpowiedzialna za debouncing i wykrywanie długiego naciśnięcia
 void handleButtons()  
 {
-  static unsigned long buttonPressTime = 0;  // Zmienna do przechowywania czasu naciśnięcia przycisku
-  static bool isButtonPressed = false;       // Flaga do śledzenia, czy przycisk jest wciśnięty
-  static bool actionTaken = false;           // Flaga do śledzenia, czy akcja została wykonana
-  static unsigned long lastPressTime = 0;    // Zmienna do kontrolowania debouncingu (ostatni czas naciśnięcia)
+  static unsigned long buttonPressTime1 = 0;  // Zmienna do przechowywania czasu naciśnięcia przycisku enkodera 1
+  static bool isButton1Pressed = false;       // Flaga do śledzenia, czy przycisk enkodera 1 jest wciśnięty
+  static bool action1Taken = false;           // Flaga do śledzenia, czy akcja dla enkodera 1 została wykonana
 
-  // Sprawdzamy stan przycisku enkodera 2
-  int reading2 = digitalRead(SW_PIN2);
+  static unsigned long buttonPressTime2 = 0;  // Zmienna do przechowywania czasu naciśnięcia przycisku enkodera 2
+  static bool isButton2Pressed = false;       // Flaga do śledzenia, czy przycisk enkodera 2 jest wciśnięty
+  static bool action2Taken = false;           // Flaga do śledzenia, czy akcja dla enkodera 2 została wykonana
   
-  // Debouncing dla przycisku enkodera 2
-  if (reading2 == LOW)
-  {  // Przycisk jest wciśnięty (stan niski)
-    // Sprawdzamy, czy minął odpowiedni czas od ostatniego naciśnięcia przycisku (debounce)
+  static unsigned long lastPressTime = 0;     // Zmienna do kontrolowania debouncingu (ostatni czas naciśnięcia)
+  const unsigned long debounceDelay = 50;     // Opóźnienie debouncingu
+
+  // ===== Obsługa przycisku enkodera 1 =====
+  int reading1 = digitalRead(SW_PIN1);
+
+  // Debouncing dla przycisku enkodera 1
+  if (reading1 == LOW)  // Przycisk jest wciśnięty (stan niski)
+  {
     if (millis() - lastPressTime > debounceDelay)
     {
-      encoderButton2 = true;  // Ustawiamy flagę, że przycisk został wciśnięty
       lastPressTime = millis();  // Aktualizujemy czas ostatniego naciśnięcia
 
       // Sprawdzamy, czy przycisk był wciśnięty przez 3 sekundy
-      if (!isButtonPressed)
+      if (!isButton1Pressed)
       {
-        buttonPressTime = millis();
-        isButtonPressed = true;
-        actionTaken = false;  // Resetujemy flagę akcji
+        buttonPressTime1 = millis();  // Ustawiamy czas naciśnięcia
+        isButton1Pressed = true;      // Ustawiamy flagę, że przycisk jest wciśnięty
+        action1Taken = false;         // Resetujemy flagę akcji dla enkodera 1
       }
 
       // Jeśli przycisk jest wciśnięty przez co najmniej 3 sekundy i akcja jeszcze nie była wykonana
-      if (millis() - buttonPressTime >= 3000 && !actionTaken)
+      if (millis() - buttonPressTime1 >= 3000 && !action1Taken)
+      {
+        timeDisplay = false;
+        displayMenu();
+        menuEnable = true;
+        displayActive = true;
+        displayStartTime = millis();
+
+        Serial.println("Wyświetlenie menu po przytrzymaniu przycisku enkodera 1");
+
+        // Ustawiamy flagę, że akcja została wykonana
+        action1Taken = true;
+      }
+    }
+  }
+  else
+  {
+    isButton1Pressed = false;  // Resetujemy flagę naciśnięcia przycisku enkodera 1
+    action1Taken = false;      // Resetujemy flagę akcji dla enkodera 1
+  }
+
+  // ===== Obsługa przycisku enkodera 2 =====
+  int reading2 = digitalRead(SW_PIN2);
+
+  // Debouncing dla przycisku enkodera 2
+  if (reading2 == LOW)  // Przycisk jest wciśnięty (stan niski)
+  {
+    if (millis() - lastPressTime > debounceDelay)
+    {
+      lastPressTime = millis();  // Aktualizujemy czas ostatniego naciśnięcia
+
+      // Sprawdzamy, czy przycisk był wciśnięty przez 3 sekundy
+      if (!isButton2Pressed)
+      {
+        buttonPressTime2 = millis();  // Ustawiamy czas naciśnięcia
+        isButton2Pressed = true;      // Ustawiamy flagę, że przycisk jest wciśnięty
+        action2Taken = false;         // Resetujemy flagę akcji dla enkodera 2
+      }
+
+      // Jeśli przycisk jest wciśnięty przez co najmniej 3 sekundy i akcja jeszcze nie była wykonana
+      if (millis() - buttonPressTime2 >= 3000 && !action2Taken)
       {
         bankMenuEnable = true;
         timeDisplay = false;
@@ -188,16 +234,15 @@ void handleButtons()
         u8g2.drawStr(20, 40, "WYBIERZ  BANK");
         u8g2.sendBuffer();
 
-        // Ustawiamy flagę akcji, aby wykonała się tylko raz
-        actionTaken = true;
+        // Ustawiamy flagę, że akcja została wykonana
+        action2Taken = true;
       }
     }
   }
   else
   {
-    encoderButton2 = false;   // Przywracamy stan przycisku
-    isButtonPressed = false;  // Resetujemy flagę naciśnięcia
-    actionTaken = false;      // Resetujemy flagę akcji, aby można było ją wykonać ponownie
+    isButton2Pressed = false;  // Resetujemy flagę naciśnięcia przycisku enkodera 2
+    action2Taken = false;      // Resetujemy flagę akcji dla enkodera 2
   }
 }
 
@@ -753,48 +798,34 @@ void audio_info(const char *info)
     u8g2.drawStr(0, 52, displayString.c_str());
   }
 
-  /*if (currentOption == PLAY_FILES)
+  
+  if ((currentOption == PLAY_FILES) && (bitrate == true))
   {
-    display.setTextSize(1);
-    display.setTextColor(SH110X_WHITE);
+    timeDisplay = true;
     if (noID3data == true)
     {
-      for (int y = 9; y <= 36; y++)
-      {
-        for (int x = 0; x < 127; x++)
-        {
-          display.drawPixel(x, y, SH110X_BLACK);
-        }
-      }
-      display.setCursor(0, 10);
-      display.println(fileNameString);
+      // Czyszczenie obszaru na nazwę pliku
+      u8g2.drawStr(0, 21, "                                           ");
+      u8g2.drawStr(0, 31, "                                           ");
+      u8g2.drawStr(0, 41, "                                           ");
+      u8g2.sendBuffer();
+      // Wyświetlanie nazwy pliku na wyczyszczonym obszarze
+      u8g2.setFont(u8g2_font_spleen6x12_mr); // Ustawienie czcionki
+      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+      u8g2.setCursor(0, 31); // Ustawienie kursora w odpowiedniej pozycji (x = 0, y = 18)
+      u8g2.print(fileNameString);
     }
-    for (int y = 37; y <= 54; y++)
-    {
-      for (int x = 0; x < 127; x++)
-      {
-        display.drawPixel(x, y, SH110X_BLACK);
-      }
-    }
-    display.setCursor(0, 37);
-    display.println(sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit");
-    
-    display.setCursor(0, 47);
-    display.println(bitrateString.substring(1) + "b/s Plik " + String(fileIndex) + "/" + String(totalFilesInFolder));
-    for (int y = 56; y <= 63; y++)
-    {
-      for (int x = 51; x < 127; x++)
-      {
-        display.drawPixel(x, y, SH110X_BLACK);
-      }
-    }
-    display.setCursor(66, 56);
-    display.println("Folder " + String(folderIndex));
-    display.display();
-    seconds = 0;
-  }*/
-}
 
+    // Czyszczenie obszaru na informacje o próbkowaniu, bitach i bitrate
+    u8g2.drawStr(0, 52, "                                           ");
+
+    // Wyświetlanie informacji o próbkowaniu, bitach i bitrate
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+    u8g2.drawStr(0, 52, displayString.c_str());
+    u8g2.sendBuffer();
+    seconds = 0;
+  }
+}
 
 void audio_id3data(const char *info)
 {
@@ -802,7 +833,7 @@ void audio_id3data(const char *info)
   Serial.println(info);
   
   // Znajdź pozycję "Artist: " lub "ARTIST: " w tekście
-  int artistIndex = String(info).indexOf("Artist: ");
+  int artistIndex = String(info).indexOf("Artist: "); 
   if (artistIndex == -1)
   {
     artistIndex = String(info).indexOf("ARTIST: ");
@@ -850,27 +881,49 @@ void audio_id3data(const char *info)
     }
     Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
   }
-  
-  /*display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(0, 0);
-  display.println("   Odtwarzam plik:   ");
 
-  if (artistString.length() > 21)
+  if (currentOption == PLAY_FILES)
   {
-    artistString = artistString.substring(0, 21); // Ogranicz długość tekstu do 21 znaków dla wyświetlacza OLED
-  }
-  display.setCursor(0, 10);
-  display.println(artistString);
+    timeDisplay = true;
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
 
-  if (titleString.length() > 42)
-  {
-    titleString = titleString.substring(0, 42); // Ogranicz długość tekstu do 42 znaków dla wyświetlacza OLED
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setCursor(0, 10);
+    u8g2.print("              ODTWARZAM PLIK:             ");
+
+    if (artistString.length() > 33)
+    {
+      artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
+    }
+    u8g2.setCursor(0, 21);
+    u8g2.print("Artysta: ");
+    u8g2.print(artistString);
+
+    if (titleString.length() > 35)
+    {
+      titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
+    }
+    u8g2.setCursor(0, 31);
+    u8g2.print("Tytul: ");
+    u8g2.print(titleString);
+
+    if (folderNameString.startsWith("/"))
+    {
+      folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
+    }
+
+    if (folderNameString.length() > 34)
+    {
+      folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
+    }
+    u8g2.setCursor(0, 41);
+    u8g2.print("Folder: ");
+    u8g2.print(folderNameString);
+
+    u8g2.sendBuffer();
   }
-  display.setCursor(0, 19);
-  display.println(titleString);
-  display.display();*/
+
 }
 
 void audio_bitrate(const char *info)
@@ -966,7 +1019,6 @@ void audio_showstreamtitle(const char *info)
     u8g2.drawStr(0, yPosition, currentLine.c_str());
   }
 
-  // Wysyłanie bufora do wyświetlacza
   u8g2.sendBuffer();
 
 }
@@ -1071,22 +1123,15 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
             Serial.print(" "); // Dodanie spacji po każdym bajcie
           }
           Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
-          
-          // Ustaw pozycję kursora na ekranie OLED
-          //display.setCursor(0, i * 9);
-          
-          // Wydrukuj skróconą ścieżkę na ekranie OLED
-          //display.print(fullPath);
         }
       }
-      // Wyświetl aktualny stan ekranu OLED
-      //display.display();
     }
     // Zamknij plik
     entry.close();
   }
 }
 
+// Funkcja do wylistowania katalogów z karty 
 void listDirectories(const char *dirname)
 {
   File root = SD.open(dirname);
@@ -1099,7 +1144,7 @@ void listDirectories(const char *dirname)
   Serial.println("Wylistowano katalogi z karty SD");
   root.close();
   scrollDown();
-  //displayFolders();
+  displayFolders();
 }
 
 // Funkcja do przewijania w górę
@@ -1145,278 +1190,239 @@ int maxSelection()
   return 0; // Zwraca 0, jeśli żaden warunek nie jest spełniony
 }
 
+// Funkcja do odtwarzania plików z wybranego folderu
 void playFromSelectedFolder()
 {
-  
-  String folder = directories[folderIndex];
+  folderNameString = directories[folderIndex];
+  Serial.println("Odtwarzanie plików z wybranego folderu: " + folderNameString);
 
-  Serial.println("Odtwarzanie plików z wybranego folderu: " + folder);
-
-  File root = SD.open(folder);
-
-  if (!root) {
-    Serial.println("Błąd otwarcia katalogu!");
-    return;
+  // Otwórz folder
+  File root = SD.open(folderNameString);
+  if (!root)
+  {
+      Serial.println("Błąd otwarcia katalogu!");
+      return;
   }
-  
+
   totalFilesInFolder = 0;
-  fileIndex = 1; // Domyślnie start odtwarzania od pierwszego pliku audio w folderze
-  while (File entry = root.openNextFile())  // Zliczanie wszystkich plików audio w folderze
+  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderze
+
+  // Zliczanie plików audio w folderze
+  while (File entry = root.openNextFile())
   {
     String fileName = entry.name();
     if (isAudioFile(fileName.c_str()))
     {
-      totalFilesInFolder++;
-      //Serial.println(fileName);
+        totalFilesInFolder++;
     }
-    entry.close();
+    entry.close(); // Zamykaj każdy plik natychmiast po zakończeniu przetwarzania
   }
   root.rewindDirectory(); // Przewiń katalog na początek
 
-  File entry;
+  bool playNextFolder = false;  // Flaga kontrolująca przejście do kolejnego folderu
 
-  while (entry = root.openNextFile())
+  // Odtwarzanie plików
+  while (fileIndex <= totalFilesInFolder && !playNextFolder)
   {
+    File entry = root.openNextFile();
+    if (!entry)
+    {
+        break;  // Koniec plików w folderze
+    }
+
     String fileName = entry.name();
 
-    // Pomijaj pliki, które nie są w zadeklarowanym formacie audio
+    // Pomijaj pliki, które nie są w formacie audio
     if (!isAudioFile(fileName.c_str()))
     {
       Serial.println("Pominięto plik: " + fileName);
+      entry.close(); // Zamknij pominięty plik
       continue;
     }
+
     fileNameString = fileName;
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(fileIndex); // Numeracja pliku
+    Serial.print(fileIndex); // Numer pliku
     Serial.print("/");
-    Serial.print(totalFilesInFolder); // Łączna liczba plików w folderze
+    Serial.print(totalFilesInFolder); // Liczba plików
     Serial.print(" - ");
     Serial.println(fileName);
-    
+
     // Pełna ścieżka do pliku
-    String fullPath = folder + "/" + fileName;
+    String fullPath = folderNameString + "/" + fileName;
+
     // Odtwarzaj plik
     audio.connecttoFS(SD, fullPath.c_str());
-
     isPlaying = true;
     noID3data = false;
 
-    // Oczekuj, aż odtwarzanie się zakończy
+    entry.close();  // Zamykaj plik po odczytaniu
+
+    // Oczekuj na zakończenie odtwarzania
     while (isPlaying)
     {
-      audio.loop(); // Tutaj obsługujemy odtwarzacz w tle
+      audio.loop(); 
       button1.loop();
       button2.loop();
 
-      if (button_1) //Przejście do kolejnego pliku w folderze
-      {
-        counter = 0;
-        button_1 = false;
-        isPlaying = false;
-        audio.stopSong();
-        fileIndex++;
-        if (fileIndex > totalFilesInFolder)
-        {
-          Serial.println("To był ostatni plik w folderze");
-          folderIndex++;
-          playFromSelectedFolder();
-        }
-        break;            // Wyjdź z pętli
-      }
-
-      if (button_2) //Przejście do poprzedniego pliku w folderze
-      {
-        counter = 0;
-        button_2 = false;
-        audio.stopSong();
-        fileIndex--;
-        if (fileIndex < 1)
-        {
-          fileIndex = 1;
-        }
-        // Odtwórz znaleziony plik
-        root.rewindDirectory(); // Przewiń katalog na początek
-        entry = root.openNextFile(); // Otwórz pierwszy plik w katalogu
-
-        // Przesuń się do wybranego pliku
-        for (int i = 1; i < fileIndex; i++)
-        {
-          entry = root.openNextFile();
-          if (!entry)
-          {
-              break; // Wyjdź, jeśli nie znaleziono pliku
-          }
-        }
-        
-        // Sprawdź, czy udało się otworzyć plik
-        if (entry)
-        {
-          // Zaktualizuj pełną ścieżkę do pliku
-          String fullPath = folder + "/" + entry.name();
-
-          // Odtwórz tylko w przypadku, gdy to jest szukany plik
-          if (isAudioFile(entry.name()))
-          {
-            audio.connecttoFS(SD, fullPath.c_str());
-            isPlaying = true;
-            Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileIndex); // Numeracja pliku
-            Serial.print("/");
-            Serial.print(totalFilesInFolder); // Łączna liczba plików w folderze
-            Serial.print(" - ");
-            Serial.println(fileName);
-          }
-        }
-      } 
-
-      if (fileEnd == true) // Przejście do odtwarzania następnego pliku
+      // Jeśli skończył się plik, przejdź do następnego
+      if (fileEnd)
       {
         fileEnd = false;
-        button_1 = true;
+        fileIndex++;
+        break;
       }
-
-      CLK_state1 = digitalRead(CLK_PIN1);
-      if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
-      {
-        timeDisplay = false;
-        displayActive = true;
-        displayStartTime = millis();
-        if (digitalRead(DT_PIN1) == HIGH)
-        {
-          volumeValue--;
-          if (volumeValue < 5)
-          {
-            volumeValue = 5;
-          }
-        }
-        else
-        {
-          volumeValue++;
-          if (volumeValue > 15)
-          {
-            volumeValue = 15;
-          }
-        }
-        audio.setVolume(volumeValue); // zakres 0...21
-        Serial.print("Wartość głośności: ");
-        Serial.println(volumeValue);
-        /*display.clearDisplay();
-        display.setTextSize(2);
-        display.setTextColor(SH110X_WHITE);
-        display.setCursor(4, 0);
-        display.println("Volume set");
-        display.setTextSize(3);
-        display.setCursor(48, 30);
-        display.println(volumeValue);
-        display.display();*/
-      }
-      prev_CLK_state1 = CLK_state1;
-
-      CLK_state2 = digitalRead(CLK_PIN2);
-      if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH)
-      {
-        folderIndex = currentSelection;
-        timeDisplay = false;
-        if (digitalRead(DT_PIN2) == HIGH)
-        {
-          folderIndex--;
-          if (folderIndex < 1)
-          {
-            folderIndex = 1;
-          }
-          Serial.print("Numer folderu do tyłu: ");
-          Serial.println(folderIndex);
-          scrollUp();
-          //displayFolders();
-        }
-        else
-        {
-          folderIndex++;
-          if (folderIndex > (directoryCount - 1))
-          {
-            folderIndex = directoryCount - 1;
-          }
-          Serial.print("Numer folderu przodu: ");
-          Serial.println(folderIndex);
-          scrollDown();
-          //displayFolders();
-        }
-        displayActive = true;
-        displayStartTime = millis();
-      }
-      prev_CLK_state2 = CLK_state2;
-
-      /*if (displayActive && (millis() - displayStartTime >= displayTimeout))   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
-      {
-        display.clearDisplay();
-        display.setTextSize(1);
-        display.setTextColor(SH110X_WHITE);
-        display.setCursor(0, 0);
-        display.println("   Odtwarzam plik:   ");
-        
-        if (noID3data == true)
-        {
-          display.setCursor(0, 10);
-          display.println(fileNameString);
-        }
-        else
-        {
-          display.setCursor(0, 10);
-          display.println(artistString);
-          display.setCursor(0, 19);
-          display.println(titleString);
-        }
-
-        display.setCursor(0, 37);
-        display.println(sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit");
-        display.setCursor(0, 47);
-        display.println(bitrateString.substring(1) + "b/s Plik " + String(fileIndex) + "/" + String(totalFilesInFolder));
-        display.setCursor(66, 56);
-        display.println("Folder " + String(folderIndex));
-        display.display();
-        displayActive = false;
-        timeDisplay = true;
-        currentOption == PLAY_FILES;
-      }*/
 
       if (button2.isPressed())
       {
         audio.stopSong();
-        playFromSelectedFolder();
+        playNextFolder = true;
+        break;
       }
 
       if (button1.isPressed())
       {
         audio.stopSong();
-        //display.clearDisplay();
         encoderButton1 = true;
         break;
       }
+
+      handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
+      handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
     }
-    
-    if (encoderButton1 == true)
+
+    // Jeśli encoderButton1 aktywowany, wyjdź z pętli
+    if (encoderButton1)
     {
       encoderButton1 = false;
       displayMenu();
       break;
     }
+
+    // Sprawdź, czy zakończono odtwarzanie plików w folderze
+    if (fileIndex > totalFilesInFolder)
+    {
+      Serial.println("To był ostatni plik w folderze");
+      playNextFolder = true;
+    }
   }
+
+  // Przejdź do kolejnego folderu, jeśli ustawiono flagę
+  if (playNextFolder)
+  {
+    if (folderIndex < directoryCount)  // Upewnij się, że folderIndex nie przekroczy dostępnych folderów
+    {
+      playFromSelectedFolder();  // Wywołanie funkcji tylko raz
+    }
+    else
+    {
+      Serial.println("To był ostatni folder.");
+    }
+  }
+
+  // Po zakończeniu zamknij katalog
   root.close();
 }
 
-// Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
-/*void displayFolders()
+
+// Obsługa kółka enkodera 1 podczas dzialania odtwarzacza plików
+void handleEncoder1Rotation()
 {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(0, 0);
-  display.println("   LISTA KATALOG" + String((char)0x1F) + "W"); // Wyświetla napis "LISTA KATALOGÓW" na ekranie, 0x1F reprezentuje literę 'Ó'
-  display.println(currentDirectory);
+  CLK_state1 = digitalRead(CLK_PIN1);
+  if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)
+  {
+    timeDisplay = false;
+    displayActive = true;
+    displayStartTime = millis();
+    if (digitalRead(DT_PIN1) == HIGH)
+    {
+      volumeValue--;
+      if (volumeValue < 3)
+      {
+        volumeValue = 3;
+      }
+    }
+    else
+    {
+      volumeValue++;
+      if (volumeValue > 18)
+      {
+        volumeValue = 18;
+      }
+    }
+    Serial.print("Wartość głośności: ");
+    Serial.println(volumeValue);
+    audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
 
-  int displayRow = 1;  // Zaczynamy od drugiego wiersza (pierwszy to nagłówek)
+    String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(65, 25, "VOLUME SET");
+    u8g2.drawStr(115, 50, volumeValueStr.c_str());
+    u8g2.sendBuffer();
 
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 7, directoryCount); i++)
+  }
+  prev_CLK_state1 = CLK_state1;
+}
+
+
+// Obsługa kółka enkodera 2 podczas dzialania odtwarzacza plików
+void handleEncoder2Rotation() 
+{
+  CLK_state2 = digitalRead(CLK_PIN2);
+  if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH) 
+  {
+    folderIndex = currentSelection; // Zaktualizuj indeks folderu
+    timeDisplay = false;
+    if (digitalRead(DT_PIN2) == HIGH) 
+    {
+      folderIndex--;
+      if (folderIndex < 1)
+      {
+          folderIndex = 1;
+      }
+      Serial.print("Numer folderu do tyłu: ");
+      Serial.println(folderIndex);
+
+      scrollUp();
+      displayFolders();
+    } 
+    else 
+    {
+      folderIndex++;
+      if (folderIndex > (directoryCount - 1))
+      {
+        folderIndex = directoryCount - 1;
+      }
+      Serial.print("Numer folderu do przodu: ");
+      Serial.println(folderIndex);
+
+      scrollDown();
+      displayFolders();
+    }
+
+    displayActive = true;
+    displayStartTime = millis();
+  }
+  prev_CLK_state2 = CLK_state2;
+}
+
+
+// Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
+void displayFolders()
+{
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.setCursor(0, 10);
+
+  u8g2.print("   ODTWARZACZ PLIKOW - LISTA KATALOGOW    ");
+  u8g2.setCursor(0, 21);
+  u8g2.print(currentDirectory);  // Wyświetl bieżący katalog
+
+  int displayRow = 1;  // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
+
+  // Wyświetlanie katalogów zaczynając od pierwszej widocznej linii
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 6, directoryCount); i++)
   {
     String fullPath = directories[i];
 
@@ -1426,40 +1432,34 @@ void playFromSelectedFolder()
       // Sprawdź, czy ścieżka zaczyna się od aktualnego katalogu
       if (fullPath.startsWith(currentDirectory))
       {
-        // Ogranicz długość do 21 znaków
-        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 21);
+        // Ogranicz długość do 42 znaków
+        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 42);
 
-        processText(displayedPath);
-
-        // Podświetlenie zaznaczenia
+        // Podświetlenie zaznaczonego katalogu
         if (i == currentSelection)
         {
-          display.setTextColor(SH110X_BLACK, SH110X_WHITE);
+          u8g2.setDrawColor(1);  // Biały kolor tła
+          u8g2.drawBox(0, displayRow * 11, 256, 10);  // Narysuj prostokąt jako tło dla zaznaczonego folderu
+          u8g2.setDrawColor(0);  // Czarny kolor tekstu
         }
         else
         {
-          display.setTextColor(SH110X_WHITE);
+          u8g2.setDrawColor(1);  // Biały kolor tekstu na czarnym tle
         }
 
-        // Wyświetl wiersz
-        display.setCursor(0, displayRow * 9);
-        display.print(displayedPath);
-        for (int y = 61; y <= 63; y++) // Wygaszenie 2 ostatnich linii wyświetlacza
-        {
-          for (int x = 0; x < 127; x++)
-          {
-            display.drawPixel(x, y, SH110X_BLACK);
-          }
-        }
+        // Wyświetl ścieżkę
+        u8g2.setCursor(0, displayRow * 10 + 11);  // Ustaw kursor dla danej linii
+        u8g2.print(displayedPath);  // Wyświetl nazwę katalogu
+
         // Przesuń się do kolejnego wiersza
         displayRow++;
       }
     }
   }
-  // Przywróć domyślne kolory tekstu
-  display.setTextColor(SH110X_WHITE);
-  display.display();
-}*/
+
+  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
+  u8g2.sendBuffer();
+}
 
 
 // Funkcja do wyświetlania listy stacji radiowych z opcją wyboru poprzez zaznaczanie w negatywie
@@ -1549,14 +1549,14 @@ void updateTimer()
       }
     }
 
-    /*if (currentOption == PLAY_FILES)
+    if (currentOption == PLAY_FILES)
     {
       // Formatuj czas jako "mm:ss"
       char timeString[10];
       snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
-      display.print(timeString);
-      display.display();
-    }*/
+      u8g2.drawStr(210, 51, timeString);
+      u8g2.sendBuffer();
+    }
 
     if ((currentOption == INTERNET_RADIO) && ((mp3 == true) || (flac == true) || (aac == true)))
     {
@@ -1873,7 +1873,6 @@ void loop()
       Serial.println(volumeValue);
       audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
 
-      // Używamy funkcji String() do konwersji liczby na tekst
       String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
       u8g2.clearBuffer();
       u8g2.setFont(u8g2_font_ncenB14_tr);
@@ -1937,7 +1936,6 @@ void loop()
           bank_nr = 1;
         }
       }
-      // Używamy funkcji String() do konwersji liczby na tekst
       String bankNrStr = String(bank_nr);  // Zamiana liczby banku na ciąg znaków
 
       u8g2.clearBuffer();
@@ -2021,31 +2019,18 @@ void loop()
       Serial.println("Błąd inicjalizacji karty SD!");
       return;
     }
-    /*display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SH110X_WHITE);
-    display.setCursor(0, 0);
-    display.println("   LISTA KATALOG" + String((char)0x1F) + "W"); // Wyświetla komunikat "LISTA KATALOGÓW" na ekranie, 0x1F reprezentuje literę 'Ó'
-    display.display();*/
     folderIndex = 1;
     currentSelection = 0;
     firstVisibleLine = 0;
     listDirectories("/");
+    volumeValue = 15;
+    audio.setVolume(volumeValue);
     playFromSelectedFolder();
   }
 
   if ((currentOption == INTERNET_RADIO) && (button1.isPressed()) && (menuEnable == true))
   {
     changeStation();
-  }
-
-  if (button1.isPressed())
-  {
-    timeDisplay = false;
-    displayMenu();
-    menuEnable = true;
-    displayActive = true;
-    displayStartTime = millis();
   }
 
   if ((currentOption == INTERNET_RADIO) && (button2.isReleased()))

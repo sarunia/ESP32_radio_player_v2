@@ -50,9 +50,9 @@
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
-int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrocenia na ekran po bezczynności
+int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrócenia na ekran po bezczynności
 int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
-int bankFromBuffer = 0;           // Numer aktualnie wybranego banku stacji z listy do przywrocenia na ekran po bezczynności
+int bankFromBuffer = 0;           // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności
 int CLK_state1;                   // Aktualny stan CLK enkodera prawego
 int prev_CLK_state1;              // Poprzedni stan CLK enkodera prawego    
 int CLK_state2;                   // Aktualny stan CLK enkodera lewego
@@ -61,15 +61,13 @@ int counter = 0;                  // Licznik dla przycisków
 int stationsCount = 0;            // Aktualna liczba przechowywanych stacji w tablicy
 int directoryCount = 0;           // Licznik katalogów
 int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze wskazanego folderu
+int fileFromBuffer = 0;           // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
+int folderFromBuffer = 0;         // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
 int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę plików w folderze
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 5;          // Maksymalna liczba widocznych linii na ekranie OLED
-bool button_1 = false;            // Flaga określająca stan przycisku 1
-bool button_2 = false;            // Flaga określająca stan przycisku 2
-bool button_3 = false;            // Flaga określająca stan przycisku 3
-bool button_4 = false;            // Flaga określająca stan przycisku 4
 bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty
 bool encoderButton2 = false;      // Flaga określająca, czy przycisk enkodera 2 został wciśnięty
 bool fileEnd = false;             // Flaga sygnalizująca koniec odtwarzania pliku audio
@@ -80,9 +78,10 @@ bool flac = false;                // Flaga określająca, czy aktualny plik audi
 bool aac = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie AAC
 bool noID3data = false;           // Flaga określająca, czy plik audio posiada dane ID3
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
-bool listedStations = false;      // Flaga określająca czy na ekranie jest pokazana lista stacji do wyboru
-bool menuEnable = false;          // Flaga określająca czy na ekranie można wyświetlić menu
-bool bankMenuEnable = false;      // Flaga określająca czy na ekranie jest wyświetlone menu wyboru banku
+bool listedStations = false;      // Flaga określająca, czy na ekranie jest pokazana lista stacji do wyboru
+bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
+bool bankMenuEnable = false;      // Flaga określająca, czy na ekranie jest wyświetlone menu wyboru banku
+bool bitratePresent = false;      // Flaga określająca, czy na serial terminalu pojawiła się informacja o bitrate - jako ostatnia dana spływajaca z info
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -142,10 +141,22 @@ enum MenuOption
 };
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 
+// Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
 bool isAudioFile(const char *filename)
 {
-  // Dodaj więcej rozszerzeń plików audio, jeśli to konieczne
-  return (strstr(filename, ".mp3") || strstr(filename, ".MP3") || strstr(filename, ".wav") || strstr(filename, ".WAV") || strstr(filename, ".flac") || strstr(filename, ".FLAC"));
+  // Znajdź ostatni wystąpienie kropki w nazwie pliku
+  const char *ext = strrchr(filename, '.');
+  
+  // Jeśli nie znaleziono kropki lub nie ma rozszerzenia, zwróć false
+  if (!ext)
+  {
+    return false;
+  }
+
+  // Sprawdź rozszerzenie, ignorując wielkość liter
+  return (strcasecmp(ext, ".mp3") == 0 || 
+          strcasecmp(ext, ".wav") == 0 || 
+          strcasecmp(ext, ".flac") == 0);
 }
 
 
@@ -723,73 +734,78 @@ void sanitizeAndSaveStation(const char* station)
 
 void audio_info(const char *info)
 {
-  // Wyświetl informacje w konsoli szeregowej
+  // Konwertuj 'info' na String
+  String infoString = String(info);
+
   Serial.print("info        ");
   Serial.println(info);
+
   // Znajdź pozycję "BitRate:" w tekście
-  int bitrateIndex = String(info).indexOf("BitRate:");
-  bool bitrate = false;
+  int bitrateIndex = infoString.indexOf("BitRate:");
+  bitratePresent = false;
   if (bitrateIndex != -1)
   {
-    // Przytnij tekst od pozycji "BitRate:" do końca linii
-    bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
-    bitrate = true;
+    int newlineIndex = infoString.indexOf('\n', bitrateIndex);
+    if (newlineIndex == -1) newlineIndex = infoString.length();
+    bitrateString = infoString.substring(bitrateIndex + 8, newlineIndex);  // Przytnij tekst od "BitRate:" do końca linii
+    bitratePresent = true;
   }
 
   // Znajdź pozycję "SampleRate:" w tekście
-  int sampleRateIndex = String(info).indexOf("SampleRate:");
+  int sampleRateIndex = infoString.indexOf("SampleRate:");
   bool sample = false;
   if (sampleRateIndex != -1)
   {
-    // Przytnij tekst od pozycji "SampleRate:" do końca linii
-    sampleRateString = String(info).substring(sampleRateIndex + 11, String(info).indexOf('\n', sampleRateIndex));
+    int newlineIndex = infoString.indexOf('\n', sampleRateIndex);
+    if (newlineIndex == -1) newlineIndex = infoString.length();
+    sampleRateString = infoString.substring(sampleRateIndex + 11, newlineIndex);  // Przytnij tekst od "SampleRate:" do końca linii
     sample = true;
   }
 
   // Znajdź pozycję "BitsPerSample:" w tekście
-  int bitsPerSampleIndex = String(info).indexOf("BitsPerSample:");
+  int bitsPerSampleIndex = infoString.indexOf("BitsPerSample:");
   bool bits = false;
   if (bitsPerSampleIndex != -1)
   {
-    // Przytnij tekst od pozycji "BitsPerSample:" do końca linii
-    bitsPerSampleString = String(info).substring(bitsPerSampleIndex + 15, String(info).indexOf('\n', bitsPerSampleIndex));
+    int newlineIndex = infoString.indexOf('\n', bitsPerSampleIndex);
+    if (newlineIndex == -1) newlineIndex = infoString.length();
+    bitsPerSampleString = infoString.substring(bitsPerSampleIndex + 15, newlineIndex);  // Przytnij tekst od "BitsPerSample:" do końca linii
     bits = true;
   }
 
   // Znajdź pozycję "skip metadata" w tekście
-  int metadata = String(info).indexOf("skip metadata");
+  int metadata = infoString.indexOf("skip metadata");
   if (metadata != -1)
   {
     noID3data = true;
     Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
     if (fileNameString.length() > 63)
     {
-      fileNameString = String(fileNameString).substring(0, 63);
+      fileNameString = fileNameString.substring(0, 63);  // Przycięcie nazwy pliku do maksymalnie 63 znaków
     }
   }
 
-  if (String(info).indexOf("MP3Decoder") != -1)
+  // Sprawdź dekodery: MP3, FLAC, AAC
+  if (infoString.indexOf("MP3Decoder") != -1)
   {
     mp3 = true;
     flac = false;
     aac = false;
   }
-
-  if (String(info).indexOf("FLACDecoder") != -1)
+  else if (infoString.indexOf("FLACDecoder") != -1)
   {
     flac = true;
     mp3 = false;
     aac = false;
   }
-
-  if (String(info).indexOf("AACDecoder") != -1)
+  else if (infoString.indexOf("AACDecoder") != -1)
   {
     aac = true;
     flac = false;
     mp3 = false;
   }
 
-  if ((currentOption == INTERNET_RADIO) && (bitrate == true)) 
+  if ((currentOption == INTERNET_RADIO) && (bitratePresent == true))
   {
     u8g2.clearBuffer();	
     u8g2.setFont(u8g2_font_spleen6x12_mr);
@@ -798,21 +814,30 @@ void audio_info(const char *info)
     u8g2.drawStr(0, 52, displayString.c_str());
   }
 
-  
-  if ((currentOption == PLAY_FILES) && (bitrate == true))
+  if ((currentOption == PLAY_FILES) && (bitratePresent == true))
   {
     timeDisplay = true;
     if (noID3data == true)
     {
-      // Czyszczenie obszaru na nazwę pliku
+      noID3data = false;
+      u8g2.drawStr(0, 10, "                                           ");
       u8g2.drawStr(0, 21, "                                           ");
       u8g2.drawStr(0, 31, "                                           ");
       u8g2.drawStr(0, 41, "                                           ");
       u8g2.sendBuffer();
-      // Wyświetlanie nazwy pliku na wyczyszczonym obszarze
-      u8g2.setFont(u8g2_font_spleen6x12_mr); // Ustawienie czcionki
+      
+      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setCursor(0, 10);
+      u8g2.print("ODTWARZANIE PLIKU ");
+      u8g2.print(fileFromBuffer);
+      u8g2.print("/");
+      u8g2.print(totalFilesInFolder);
+      u8g2.print(" FOLDER ");
+      u8g2.print(folderFromBuffer);
+      u8g2.print("/");
+      u8g2.print(directoryCount);
       u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
-      u8g2.setCursor(0, 31); // Ustawienie kursora w odpowiedniej pozycji (x = 0, y = 18)
+      u8g2.setCursor(0, 31);
       u8g2.print(fileNameString);
     }
 
@@ -826,6 +851,7 @@ void audio_info(const char *info)
     seconds = 0;
   }
 }
+
 
 void audio_id3data(const char *info)
 {
@@ -887,7 +913,6 @@ void audio_id3data(const char *info)
     timeDisplay = true;
     u8g2.clearBuffer();
     u8g2.sendBuffer();
-
     u8g2.setFont(u8g2_font_spleen6x12_mr);
     u8g2.setCursor(0, 10);
     u8g2.print("ODTWARZANIE PLIKU ");
@@ -930,7 +955,6 @@ void audio_id3data(const char *info)
 
     u8g2.sendBuffer();
   }
-
 }
 
 void audio_bitrate(const char *info)
@@ -1231,6 +1255,8 @@ void playFromSelectedFolder()
   // Odtwarzanie plików
   while (fileIndex <= totalFilesInFolder && !playNextFolder)
   {
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
     File entry = root.openNextFile();
     if (!entry)
     {
@@ -1261,7 +1287,8 @@ void playFromSelectedFolder()
     // Odtwarzaj plik
     audio.connecttoFS(SD, fullPath.c_str());
     isPlaying = true;
-    noID3data = false;
+    fileFromBuffer = fileIndex;
+    folderFromBuffer = folderIndex;
 
     entry.close();  // Zamykaj plik po odczytaniu
 
@@ -1296,6 +1323,7 @@ void playFromSelectedFolder()
 
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
+      backDisplayFile();         // Obsługa bezczynności, przywrócenie wyświetlania danych audio
     }
 
     // Jeśli encoderButton1 aktywowany, wyjdź z pętli
@@ -1309,8 +1337,9 @@ void playFromSelectedFolder()
     // Sprawdź, czy zakończono odtwarzanie plików w folderze
     if (fileIndex > totalFilesInFolder)
     {
-      Serial.println("To był ostatni plik w folderze");
+      Serial.println("To był ostatni plik w folderze, przechodzę do kolejnego folderu");
       playNextFolder = true;
+      directoryCount++;
     }
   }
 
@@ -1331,6 +1360,93 @@ void playFromSelectedFolder()
   root.close();
 }
 
+// Funkcja przywracająca wyświetlanie danych o utworze po przekroczeniu czasu bezczynności podczas odtwarzania plików audio z karty SD
+void backDisplayFile()
+{
+  if (displayActive && (millis() - displayStartTime >= displayTimeout))
+  {
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setCursor(0, 10);
+    u8g2.print("ODTWARZANIE PLIKU ");
+    u8g2.print(fileFromBuffer);
+    u8g2.print("/");
+    u8g2.print(totalFilesInFolder);
+    u8g2.print(" FOLDER ");
+    u8g2.print(folderFromBuffer);
+    u8g2.print("/");
+    u8g2.print(directoryCount);
+
+    if (noID3data == true) // Jeśli plik nie zawiera danych ID3 to wyświetl nazwę pliku z podziałem na 2 wiersze
+    {
+      int maxCharsPerLine = 42;  // Maksymalna liczba znaków na linię
+      int fileNameLength = fileNameString.length();
+      noID3data = false;
+      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+
+      // Sprawdzenie długości nazwy pliku
+      if (fileNameLength > maxCharsPerLine)
+      {
+        // Jeśli nazwa pliku przekracza limit, podziel ją na dwie części
+        String firstLine = fileNameString.substring(0, maxCharsPerLine);  // Pierwsze 42 znaki
+        String secondLine = fileNameString.substring(maxCharsPerLine);    // Reszta nazwy
+
+        // Wydrukowanie pierwszej części nazwy pliku
+        u8g2.setCursor(0, 31);  // Ustaw kursor dla pierwszej linii
+        u8g2.print(firstLine);
+
+        // Wydrukowanie drugiej części nazwy pliku na nowej linii
+        u8g2.setCursor(0, 41);  // Przesuń kursor o 10 pikseli niżej (możesz dostosować)
+        u8g2.print(secondLine);
+      }
+      else
+      {
+        // Jeśli nazwa pliku jest krótsza niż 42 znaki, wydrukuj całość w jednej linii
+        u8g2.setCursor(0, 31);
+        u8g2.print(fileNameString);
+      }
+    }
+    else
+    {
+      if (artistString.length() > 33)
+      {
+        artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
+      }
+      u8g2.setCursor(0, 21);
+      u8g2.print("Artysta: ");
+      u8g2.print(artistString);
+
+      if (titleString.length() > 35)
+      {
+        titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
+      }
+      u8g2.setCursor(0, 31);
+      u8g2.print("Tytul: ");
+      u8g2.print(titleString);
+
+      if (folderNameString.startsWith("/"))
+      {
+        folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
+      }
+
+      if (folderNameString.length() > 34)
+      {
+        folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
+      }
+      u8g2.setCursor(0, 41);
+      u8g2.print("Folder: ");
+      u8g2.print(folderNameString);
+    }
+
+    // Wyświetlanie informacji o próbkowaniu, bitach i bitrate
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+    u8g2.drawStr(0, 52, displayString.c_str());
+    u8g2.sendBuffer();
+    displayActive = false;
+    timeDisplay = true;
+  }
+}
 
 // Obsługa kółka enkodera 1 podczas dzialania odtwarzacza plików
 void handleEncoder1Rotation()
@@ -1463,8 +1579,8 @@ void displayFolders()
       }
     }
   }
-
-  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
+    // Przywróć domyślne ustawienia koloru rysowania (biały tekst na czarnym tle)
+  u8g2.setDrawColor(1);  // Biały kolor rysowania
   u8g2.sendBuffer();
 }
 
@@ -1472,7 +1588,8 @@ void displayFolders()
 // Funkcja do wyświetlania listy stacji radiowych z opcją wyboru poprzez zaznaczanie w negatywie
 void displayStations()
 {
-  u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej zawartości
+  u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej 
+  u8g2.setFont(u8g2_font_spleen6x12_mr);
   u8g2.setCursor(60, 10);  // Ustaw pozycję kursora (x=60, y=10) dla nagłówka
   u8g2.print("STACJE RADIOWE    ");  // Wyświetl nagłówek "STACJE RADIOWE"
   u8g2.print(String(station_nr) + " / " + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
@@ -2030,6 +2147,7 @@ void loop()
     currentSelection = 0;
     firstVisibleLine = 0;
     listDirectories("/");
+    audio.stopSong();
     volumeValue = 15;
     audio.setVolume(volumeValue);
     playFromSelectedFolder();

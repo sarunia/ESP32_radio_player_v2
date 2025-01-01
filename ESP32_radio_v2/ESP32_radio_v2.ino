@@ -76,7 +76,7 @@ bool isPlaying = false;           // Flaga określająca, czy obecnie trwa odtwa
 bool mp3 = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie MP3
 bool flac = false;                // Flaga określająca, czy aktualny plik audio jest w formacie FLAC
 bool aac = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie AAC
-bool noID3data = false;           // Flaga określająca, czy plik audio posiada dane ID3
+bool id3tag = false;              // Flaga określająca, czy plik audio posiada dane ID3
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
 bool listedStations = false;      // Flaga określająca, czy na ekranie jest pokazana lista stacji do wyboru
 bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
@@ -538,7 +538,6 @@ void changeStation()
 
     // Połącz z daną stacją
     audio.connecttohost(stationUrl.c_str());
-    seconds = 0;
     stationFromBuffer = station_nr;
     bankFromBuffer = bank_nr;
     saveStationOnSD();
@@ -734,71 +733,61 @@ void sanitizeAndSaveStation(const char* station)
 
 void audio_info(const char *info)
 {
-  // Konwertuj 'info' na String
-  String infoString = String(info);
-
   Serial.print("info        ");
   Serial.println(info);
-
   // Znajdź pozycję "BitRate:" w tekście
-  int bitrateIndex = infoString.indexOf("BitRate:");
+  int bitrateIndex = String(info).indexOf("BitRate:");
   bitratePresent = false;
   if (bitrateIndex != -1)
   {
-    int newlineIndex = infoString.indexOf('\n', bitrateIndex);
-    if (newlineIndex == -1) newlineIndex = infoString.length();
-    bitrateString = infoString.substring(bitrateIndex + 8, newlineIndex);  // Przytnij tekst od "BitRate:" do końca linii
+    // Przytnij tekst od pozycji "BitRate:" do końca linii
+    bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
     bitratePresent = true;
+    displayPlayer();
   }
 
   // Znajdź pozycję "SampleRate:" w tekście
-  int sampleRateIndex = infoString.indexOf("SampleRate:");
-  bool sample = false;
+  int sampleRateIndex = String(info).indexOf("SampleRate:");
   if (sampleRateIndex != -1)
   {
-    int newlineIndex = infoString.indexOf('\n', sampleRateIndex);
-    if (newlineIndex == -1) newlineIndex = infoString.length();
-    sampleRateString = infoString.substring(sampleRateIndex + 11, newlineIndex);  // Przytnij tekst od "SampleRate:" do końca linii
-    sample = true;
+    // Przytnij tekst od pozycji "SampleRate:" do końca linii
+    sampleRateString = String(info).substring(sampleRateIndex + 11, String(info).indexOf('\n', sampleRateIndex));
   }
 
   // Znajdź pozycję "BitsPerSample:" w tekście
-  int bitsPerSampleIndex = infoString.indexOf("BitsPerSample:");
-  bool bits = false;
+  int bitsPerSampleIndex = String(info).indexOf("BitsPerSample:");
   if (bitsPerSampleIndex != -1)
   {
-    int newlineIndex = infoString.indexOf('\n', bitsPerSampleIndex);
-    if (newlineIndex == -1) newlineIndex = infoString.length();
-    bitsPerSampleString = infoString.substring(bitsPerSampleIndex + 15, newlineIndex);  // Przytnij tekst od "BitsPerSample:" do końca linii
-    bits = true;
+    // Przytnij tekst od pozycji "BitsPerSample:" do końca linii
+    bitsPerSampleString = String(info).substring(bitsPerSampleIndex + 15, String(info).indexOf('\n', bitsPerSampleIndex));
   }
 
   // Znajdź pozycję "skip metadata" w tekście
-  int metadata = infoString.indexOf("skip metadata");
+  int metadata = String(info).indexOf("skip metadata");
   if (metadata != -1)
   {
-    noID3data = true;
     Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
     if (fileNameString.length() > 63)
     {
-      fileNameString = fileNameString.substring(0, 63);  // Przycięcie nazwy pliku do maksymalnie 63 znaków
+      fileNameString = String(fileNameString).substring(0, 63);
     }
   }
 
-  // Sprawdź dekodery: MP3, FLAC, AAC
-  if (infoString.indexOf("MP3Decoder") != -1)
+  if (String(info).indexOf("MP3Decoder") != -1)
   {
     mp3 = true;
     flac = false;
     aac = false;
   }
-  else if (infoString.indexOf("FLACDecoder") != -1)
+
+  if (String(info).indexOf("FLACDecoder") != -1)
   {
     flac = true;
     mp3 = false;
     aac = false;
   }
-  else if (infoString.indexOf("AACDecoder") != -1)
+
+  if (String(info).indexOf("AACDecoder") != -1)
   {
     aac = true;
     flac = false;
@@ -812,43 +801,7 @@ void audio_info(const char *info)
     u8g2.drawStr(0, 10, stationName.c_str());
     String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
     u8g2.drawStr(0, 52, displayString.c_str());
-  }
-
-  if ((currentOption == PLAY_FILES) && (bitratePresent == true))
-  {
-    timeDisplay = true;
-    if (noID3data == true)
-    {
-      noID3data = false;
-      u8g2.drawStr(0, 10, "                                           ");
-      u8g2.drawStr(0, 21, "                                           ");
-      u8g2.drawStr(0, 31, "                                           ");
-      u8g2.drawStr(0, 41, "                                           ");
-      u8g2.sendBuffer();
-      
-      u8g2.setFont(u8g2_font_spleen6x12_mr);
-      u8g2.setCursor(0, 10);
-      u8g2.print("ODTWARZANIE PLIKU ");
-      u8g2.print(fileFromBuffer);
-      u8g2.print("/");
-      u8g2.print(totalFilesInFolder);
-      u8g2.print(" FOLDER ");
-      u8g2.print(folderFromBuffer);
-      u8g2.print("/");
-      u8g2.print(directoryCount);
-      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
-      u8g2.setCursor(0, 31);
-      u8g2.print(fileNameString);
-    }
-
-    // Czyszczenie obszaru na informacje o próbkowaniu, bitach i bitrate
-    u8g2.drawStr(0, 52, "                                           ");
-
-    // Wyświetlanie informacji o próbkowaniu, bitach i bitrate
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
     u8g2.sendBuffer();
-    seconds = 0;
   }
 }
 
@@ -857,103 +810,43 @@ void audio_id3data(const char *info)
 {
   Serial.print("id3data     ");
   Serial.println(info);
-  
-  // Znajdź pozycję "Artist: " lub "ARTIST: " w tekście
-  int artistIndex = String(info).indexOf("Artist: "); 
-  if (artistIndex == -1)
-  {
-    artistIndex = String(info).indexOf("ARTIST: ");
-  }
 
-  if (artistIndex != -1)
+  // Znajdź pozycję w tekście
+  int artistIndex1 = String(info).indexOf("Artist: ");
+  int artistIndex2 = String(info).indexOf("ARTIST=");
+
+  if (artistIndex1 != -1)
   {
     // Przytnij tekst od pozycji "Artist:" do końca linii
-    artistString = String(info).substring(artistIndex + 8, String(info).indexOf('\n', artistIndex));
+    artistString = String(info).substring(artistIndex1 + 8, String(info).indexOf('\n', artistIndex1));
     Serial.println("Znalazłem artystę: " + artistString);
-
-    // Pomocnicza pętla w celu wyłapania bajtów artistString na serial terminalu 
-    /*for (int i = 0; i < artistString.length(); i++) {
-      Serial.print("0x");
-      if (artistString[i] < 0x10) {
-        Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
-      }
-      Serial.print(artistString[i], HEX); // Drukowanie znaku jako wartość hex
-      Serial.print(" "); // Dodanie spacji po każdym bajcie
-    }
-    Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
+    id3tag = true;
   }
-  
-  // Znajdź pozycję "Title: " lub "TITLE " w tekście
-  int titleIndex = String(info).indexOf("Title: ");
-  if (titleIndex == -1)
+  if (artistIndex2 != -1)
   {
-    titleIndex = String(info).indexOf("TITLE: ");
+    // Przytnij tekst od pozycji "ARTIST=" do końca linii
+    artistString = String(info).substring(artistIndex2 + 7, String(info).indexOf('\n', artistIndex2));
+    Serial.println("Znalazłem artystę: " + artistString);
+    id3tag = true;
   }
+
+  // Znajdź pozycję w tekście
+  int titleIndex1 = String(info).indexOf("Title: ");
+  int titleIndex2 = String(info).indexOf("TITLE=");
   
-  if (titleIndex != -1)
+  if (titleIndex1 != -1)
   {
     // Przytnij tekst od pozycji "Title: " do końca linii
-    titleString = String(info).substring(titleIndex + 7, String(info).indexOf('\n', titleIndex));
+    titleString = String(info).substring(titleIndex1 + 7, String(info).indexOf('\n', titleIndex1));
     Serial.println("Znalazłem tytuł: " + titleString);
-
-    // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu 
-    /*for (int i = 0; i < titleString.length(); i++) {
-      Serial.print("0x");
-      if (titleString[i] < 0x10) {
-        Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
-      }
-      Serial.print(titleString[i], HEX); // Drukowanie znaku jako wartość hex
-      Serial.print(" "); // Dodanie spacji po każdym bajcie
-    }
-    Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
+    id3tag = true;
   }
-
-  if (currentOption == PLAY_FILES)
+  if (titleIndex2 != -1)
   {
-    timeDisplay = true;
-    u8g2.clearBuffer();
-    u8g2.sendBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
-    u8g2.setCursor(0, 10);
-    u8g2.print("ODTWARZANIE PLIKU ");
-    u8g2.print(fileIndex);
-    u8g2.print("/");
-    u8g2.print(totalFilesInFolder);
-    u8g2.print(" FOLDER ");
-    u8g2.print(folderIndex);
-    u8g2.print("/");
-    u8g2.print(directoryCount);
-
-    if (artistString.length() > 33)
-    {
-      artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
-    }
-    u8g2.setCursor(0, 21);
-    u8g2.print("Artysta: ");
-    u8g2.print(artistString);
-
-    if (titleString.length() > 35)
-    {
-      titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
-    }
-    u8g2.setCursor(0, 31);
-    u8g2.print("Tytul: ");
-    u8g2.print(titleString);
-
-    if (folderNameString.startsWith("/"))
-    {
-      folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
-    }
-
-    if (folderNameString.length() > 34)
-    {
-      folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
-    }
-    u8g2.setCursor(0, 41);
-    u8g2.print("Folder: ");
-    u8g2.print(folderNameString);
-
-    u8g2.sendBuffer();
+    // Przytnij tekst od pozycji "TITLE=" do końca linii
+    titleString = String(info).substring(titleIndex2 + 6, String(info).indexOf('\n', titleIndex2));
+    Serial.println("Znalazłem tytuł: " + titleString);
+    id3tag = true;
   }
 }
 
@@ -986,26 +879,13 @@ void audio_showstreamtitle(const char *info)
   Serial.println(info);
   stationString = String(info);
 
-  if (stationString.length() > 123)
+  if (stationString.length() > 126)
   {
-    stationString = stationString.substring(0, 123); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
+    stationString = stationString.substring(0, 126); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
   }
-
-  // Pomocnicza pętla w celu wyłapania bajtów stationString na serial terminalu 
-  /*for (int i = 0; i < stationString.length(); i++)  // Pętla iteruje przez każdy znak w `stationString`
-  {
-    Serial.print("0x"); // Wyświetla prefiks "0x" przed wartością heksadecymalną
-    if (stationString[i] < 0x10)
-    {
-      Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
-    }
-    Serial.print(stationString[i], HEX); // // Wyświetla wartość znaku w formacie heksadecymalnym.
-    Serial.print(" "); // Dodanie spacji po każdym bajcie
-  }
-  Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
 
   // Parametry
-  const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
+  const int maxLineLength = 42;  // Maksymalna długość jednej linii w znakach
   String currentLine = "";  // Bieżąca linia
   int yPosition = 21;  // Początkowa pozycja Y
 
@@ -1051,7 +931,6 @@ void audio_showstreamtitle(const char *info)
   }
 
   u8g2.sendBuffer();
-
 }
 
 void audio_commercial(const char *info)
@@ -1128,9 +1007,6 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
       // Zwiększ licznik katalogów
       directoryCount++;
       
-      // Rekurencyjnie wywołaj funkcję dla podkatalogu
-      //printDirectoriesAndSavePaths(entry, numTabs + 1, path);
-      
       // Jeżeli to nie katalog System Volume Information, wydrukuj na ekranie OLED
       if (path != "/System Volume Information")
       {
@@ -1141,19 +1017,6 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
           
           // Ogranicz długość do 21 znaków
           fullPath = fullPath.substring(1, 22);
-
-          // Pomocnicza pętla w celu wyłapania bajtów fullPath na serial terminalu 
-          /*for (int i = 0; i < fullPath.length(); i++)
-          {
-            Serial.print("0x");
-            if (fullPath[i] < 0x10)
-            {
-              Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
-            }
-            Serial.print(fullPath[i], HEX); // Drukowanie znaku jako wartość hex
-            Serial.print(" "); // Dodanie spacji po każdym bajcie
-          }
-          Serial.println(); // Nowa linia po zakończeniu drukowania bajtów*/
         }
       }
     }
@@ -1286,6 +1149,7 @@ void playFromSelectedFolder()
 
     // Odtwarzaj plik
     audio.connecttoFS(SD, fullPath.c_str());
+    seconds = 0;
     isPlaying = true;
     fileFromBuffer = fileIndex;
     folderFromBuffer = folderIndex;
@@ -1303,6 +1167,7 @@ void playFromSelectedFolder()
       if (fileEnd)
       {
         fileEnd = false;
+        id3tag = false;
         fileIndex++;
         break;
       }
@@ -1311,6 +1176,7 @@ void playFromSelectedFolder()
       {
         audio.stopSong();
         playNextFolder = true;
+        id3tag = false;
         break;
       }
 
@@ -1323,7 +1189,7 @@ void playFromSelectedFolder()
 
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
-      backDisplayFile();         // Obsługa bezczynności, przywrócenie wyświetlania danych audio
+      backDisplayPlayer();         // Obsługa bezczynności, przywrócenie wyświetlania danych audio
     }
 
     // Jeśli encoderButton1 aktywowany, wyjdź z pętli
@@ -1339,7 +1205,7 @@ void playFromSelectedFolder()
     {
       Serial.println("To był ostatni plik w folderze, przechodzę do kolejnego folderu");
       playNextFolder = true;
-      directoryCount++;
+      folderIndex++;
     }
   }
 
@@ -1360,55 +1226,28 @@ void playFromSelectedFolder()
   root.close();
 }
 
-// Funkcja przywracająca wyświetlanie danych o utworze po przekroczeniu czasu bezczynności podczas odtwarzania plików audio z karty SD
-void backDisplayFile()
+
+// Obsługa wyświetlacza dla odtwarzanego pliku z karty SD
+void displayPlayer()
 {
-  if (displayActive && (millis() - displayStartTime >= displayTimeout))
+  if ((currentOption == PLAY_FILES) && (bitratePresent == true))
   {
-    u8g2.clearBuffer();
-    u8g2.sendBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
-    u8g2.setCursor(0, 10);
-    u8g2.print("ODTWARZANIE PLIKU ");
-    u8g2.print(fileFromBuffer);
-    u8g2.print("/");
-    u8g2.print(totalFilesInFolder);
-    u8g2.print(" FOLDER ");
-    u8g2.print(folderFromBuffer);
-    u8g2.print("/");
-    u8g2.print(directoryCount);
-
-    if (noID3data == true) // Jeśli plik nie zawiera danych ID3 to wyświetl nazwę pliku z podziałem na 2 wiersze
+    if (id3tag == true)
     {
-      int maxCharsPerLine = 42;  // Maksymalna liczba znaków na linię
-      int fileNameLength = fileNameString.length();
-      noID3data = false;
-      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+      timeDisplay = true;
+      u8g2.clearBuffer();
+      u8g2.sendBuffer();
+      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setCursor(0, 10);
+      u8g2.print("ODTWARZANIE PLIKU ");
+      u8g2.print(fileIndex);
+      u8g2.print("/");
+      u8g2.print(totalFilesInFolder);
+      u8g2.print(" FOLDER ");
+      u8g2.print(folderIndex);
+      u8g2.print("/");
+      u8g2.print(directoryCount);
 
-      // Sprawdzenie długości nazwy pliku
-      if (fileNameLength > maxCharsPerLine)
-      {
-        // Jeśli nazwa pliku przekracza limit, podziel ją na dwie części
-        String firstLine = fileNameString.substring(0, maxCharsPerLine);  // Pierwsze 42 znaki
-        String secondLine = fileNameString.substring(maxCharsPerLine);    // Reszta nazwy
-
-        // Wydrukowanie pierwszej części nazwy pliku
-        u8g2.setCursor(0, 31);  // Ustaw kursor dla pierwszej linii
-        u8g2.print(firstLine);
-
-        // Wydrukowanie drugiej części nazwy pliku na nowej linii
-        u8g2.setCursor(0, 41);  // Przesuń kursor o 10 pikseli niżej (możesz dostosować)
-        u8g2.print(secondLine);
-      }
-      else
-      {
-        // Jeśli nazwa pliku jest krótsza niż 42 znaki, wydrukuj całość w jednej linii
-        u8g2.setCursor(0, 31);
-        u8g2.print(fileNameString);
-      }
-    }
-    else
-    {
       if (artistString.length() > 33)
       {
         artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
@@ -1437,12 +1276,44 @@ void backDisplayFile()
       u8g2.setCursor(0, 41);
       u8g2.print("Folder: ");
       u8g2.print(folderNameString);
+      u8g2.drawStr(0, 52, "                                           ");
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+      u8g2.drawStr(0, 52, displayString.c_str());
+      u8g2.sendBuffer();
+      Serial.println("Tagi ID3 artysty, tytułu i folderu gotowe do wyświetlenia");
     }
+    else
+    {
+      timeDisplay = true;
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setCursor(0, 10);
+      u8g2.print("     ODTWARZANIE PLIKU ");
+      u8g2.print(fileFromBuffer);
+      u8g2.print("/");
+      u8g2.print(totalFilesInFolder);
+      u8g2.print(" FOLDER ");
+      u8g2.print(folderFromBuffer);
+      u8g2.print("/");
+      u8g2.print(directoryCount);
+      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+      u8g2.setCursor(0, 31);
+      u8g2.print(fileNameString);
+      u8g2.drawStr(0, 52, "                                           ");
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+      u8g2.drawStr(0, 52, displayString.c_str());
+      u8g2.sendBuffer();
+      Serial.println("Brak prawidłowych tagów ID3 do wyświetlenia");
+    }
+  }
+}
 
-    // Wyświetlanie informacji o próbkowaniu, bitach i bitrate
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
-    u8g2.sendBuffer();
+// Funkcja przywracająca wyświetlanie danych o utworze po przekroczeniu czasu bezczynności podczas odtwarzania plików audio z karty SD
+void backDisplayPlayer()
+{
+  if (displayActive && (millis() - displayStartTime >= displayTimeout))
+  {
+    displayPlayer();
     displayActive = false;
     timeDisplay = true;
   }
@@ -1555,8 +1426,8 @@ void displayFolders()
       // Sprawdź, czy ścieżka zaczyna się od aktualnego katalogu
       if (fullPath.startsWith(currentDirectory))
       {
-        // Ogranicz długość do 42 znaków
-        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 42);
+        // Ogranicz długość do 40 znaków
+        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 40);
 
         // Podświetlenie zaznaczonego katalogu
         if (i == currentSelection)
@@ -1673,7 +1544,7 @@ void updateTimer()
       }
     }
 
-    if (currentOption == PLAY_FILES)
+    if ((currentOption == PLAY_FILES) && (bitratePresent == true))
     {
       // Formatuj czas jako "mm:ss"
       char timeString[10];

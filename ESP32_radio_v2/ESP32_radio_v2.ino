@@ -1322,6 +1322,7 @@ void backDisplayPlayer()
 {
   if (displayActive && (millis() - displayStartTime >= displayTimeout))
   {
+    folderIndex = folderFromBuffer;
     displayPlayer();
     displayActive = false;
     timeDisplay = true;

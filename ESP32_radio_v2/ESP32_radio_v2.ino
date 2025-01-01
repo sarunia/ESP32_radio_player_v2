@@ -87,7 +87,6 @@ unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ek
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
 
-
 String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
 String stationName;                       // Nazwa aktualnie wybranej stacji radiowej
@@ -158,7 +157,6 @@ bool isAudioFile(const char *filename)
           strcasecmp(ext, ".wav") == 0 || 
           strcasecmp(ext, ".flac") == 0);
 }
-
 
 // Funkcja do obsługi przycisków enkoderów, odpowiedzialna za debouncing i wykrywanie długiego naciśnięcia
 void handleButtons()  
@@ -256,7 +254,6 @@ void handleButtons()
     action2Taken = false;      // Resetujemy flagę akcji dla enkodera 2
   }
 }
-
 
 // Funkcja do pobierania danych z API z serwera pogody openweathermap.org
 void getWeatherData()
@@ -424,7 +421,6 @@ String convertTimestampToDate(unsigned long timestamp)
   return date;  // Zwraca sformatowaną datę jako String
 }
 
-
 //Funkcja odpowiedzialna za zapisywanie informacji o stacji do pamięci EEPROM.
 void saveStationToEEPROM(const char* station)
 {   
@@ -548,7 +544,6 @@ void changeStation()
     Serial.println("Odczytany URL: " + stationUrl);
   }
 }
-
 
 // Funkcja do pobierania listy stacji radiowych z serwera i zapisania ich w wybranym banku na karcie SD
 void fetchStationsFromServer()
@@ -703,7 +698,6 @@ void fetchStationsFromServer()
   http.end();
 }
 
-
 // Funkcja przetwarza i zapisuje stację do pamięci EEPROM
 void sanitizeAndSaveStation(const char* station)
 {
@@ -743,7 +737,14 @@ void audio_info(const char *info)
     // Przytnij tekst od pozycji "BitRate:" do końca linii
     bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
     bitratePresent = true;
-    displayPlayer();
+    if (currentOption == PLAY_FILES)
+    {
+      displayPlayer();
+    }
+    if (currentOption == INTERNET_RADIO)
+    {
+      displayRadio();
+    }
   }
 
   // Znajdź pozycję "SampleRate:" w tekście
@@ -767,9 +768,9 @@ void audio_info(const char *info)
   if (metadata != -1)
   {
     Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
-    if (fileNameString.length() > 63)
+    if (fileNameString.length() > 84)
     {
-      fileNameString = String(fileNameString).substring(0, 63);
+      fileNameString = String(fileNameString).substring(0, 84); // Przytnij string do 84 znaków, aby zmieścić w 2 liniach z dalszym podziałem na pełne wyrazy
     }
   }
 
@@ -793,18 +794,7 @@ void audio_info(const char *info)
     flac = false;
     mp3 = false;
   }
-
-  if ((currentOption == INTERNET_RADIO) && (bitratePresent == true))
-  {
-    u8g2.clearBuffer();	
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
-    u8g2.drawStr(0, 10, stationName.c_str());
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
-    u8g2.sendBuffer();
-  }
 }
-
 
 void audio_id3data(const char *info)
 {
@@ -871,66 +861,13 @@ void audio_showstation(const char *info)
 
 void audio_showstreamtitle(const char *info)
 {
-  u8g2.drawStr(0, 21, "                                           ");
-  u8g2.drawStr(0, 31, "                                           ");
-  u8g2.drawStr(0, 41, "                                           ");
-
   Serial.print("streamtitle ");
   Serial.println(info);
   stationString = String(info);
-
-  if (stationString.length() > 126)
+  if (currentOption == INTERNET_RADIO)
   {
-    stationString = stationString.substring(0, 126); // Ogranicz długość tekstu do 120 znaków dla wyświetlacza OLED
+    displayRadio();
   }
-
-  // Parametry
-  const int maxLineLength = 42;  // Maksymalna długość jednej linii w znakach
-  String currentLine = "";  // Bieżąca linia
-  int yPosition = 21;  // Początkowa pozycja Y
-
-  // Podziel tekst na wyrazy
-  String word;
-  int wordStart = 0;
-
-  for (int i = 0; i <= stationString.length(); i++)
-  {
-    // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
-    if (i == stationString.length() || stationString.charAt(i) == ' ')
-    {
-      // Pobierz słowo
-      String word = stationString.substring(wordStart, i);
-      wordStart = i + 1;
-
-      // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
-      if (currentLine.length() + word.length() <= maxLineLength)
-      {
-        // Dodaj słowo do bieżącej linii
-        if (currentLine.length() > 0)
-        {
-          currentLine += " ";  // Dodaj spację między słowami
-        }
-        currentLine += word;
-      }
-      else
-      {
-        // Jeśli słowo nie pasuje, wyświetl bieżącą linię i przejdź do nowej linii
-        u8g2.drawStr(0, yPosition, currentLine.c_str());
-        yPosition += 10;  // Przesunięcie w dół dla kolejnej linii
-
-        // Zresetuj bieżącą linię i dodaj nowe słowo
-        currentLine = word;
-      }
-    }
-  }
-
-  // Wyświetl ostatnią linię, jeśli coś zostało
-  if (currentLine.length() > 0)
-  {
-    u8g2.drawStr(0, yPosition, currentLine.c_str());
-  }
-
-  u8g2.sendBuffer();
 }
 
 void audio_commercial(const char *info)
@@ -1226,85 +1163,158 @@ void playFromSelectedFolder()
   root.close();
 }
 
+// Obsługa wyświetlacza dla odtwarzanego strumienia radia internetowego
+void displayRadio()
+{
+  u8g2.clearBuffer();	
+  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.drawStr(0, 10, stationName.c_str());
+
+  // Parametry do obługi wyświetlania w 3 kolejnych wierszach z podzialem do pełnych wyrazów
+  const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
+  String currentLine = "";  // Bieżąca linia
+  int yPosition = 21;  // Początkowa pozycja Y
+
+  // Podziel tekst na wyrazy
+  String word;
+  int wordStart = 0;
+
+  for (int i = 0; i <= stationString.length(); i++)
+  {
+    // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
+    if (i == stationString.length() || stationString.charAt(i) == ' ')
+    {
+      // Pobierz słowo
+      String word = stationString.substring(wordStart, i);
+      wordStart = i + 1;
+
+      // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
+      if (currentLine.length() + word.length() <= maxLineLength)
+      {
+        // Dodaj słowo do bieżącej linii
+        if (currentLine.length() > 0)
+        {
+          currentLine += " ";  // Dodaj spację między słowami
+        }
+        currentLine += word;
+      }
+      else
+      {
+        // Jeśli słowo nie pasuje, wyświetl bieżącą linię i przejdź do nowej linii
+        u8g2.drawStr(0, yPosition, currentLine.c_str());
+        yPosition += 10;  // Przesunięcie w dół dla kolejnej linii
+
+        // Zresetuj bieżącą linię i dodaj nowe słowo
+        currentLine = word;
+      }
+    }
+  }
+
+  // Wyświetl ostatnią linię, jeśli coś zostało
+  if (currentLine.length() > 0)
+  {
+    u8g2.drawStr(0, yPosition, currentLine.c_str());
+  }
+
+  String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+  u8g2.drawStr(0, 52, displayString.c_str());
+  u8g2.sendBuffer();
+}
 
 // Obsługa wyświetlacza dla odtwarzanego pliku z karty SD
 void displayPlayer()
 {
-  if ((currentOption == PLAY_FILES) && (bitratePresent == true))
+  if (id3tag == true)
   {
-    if (id3tag == true)
+    timeDisplay = true;
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setCursor(0, 10);
+    u8g2.print("ODTWARZANIE PLIKU ");
+    u8g2.print(fileIndex);
+    u8g2.print("/");
+    u8g2.print(totalFilesInFolder);
+    u8g2.print(" FOLDER ");
+    u8g2.print(folderIndex);
+    u8g2.print("/");
+    u8g2.print(directoryCount);
+
+    if (artistString.length() > 33)
     {
-      timeDisplay = true;
-      u8g2.clearBuffer();
-      u8g2.sendBuffer();
-      u8g2.setFont(u8g2_font_spleen6x12_mr);
-      u8g2.setCursor(0, 10);
-      u8g2.print("ODTWARZANIE PLIKU ");
-      u8g2.print(fileIndex);
-      u8g2.print("/");
-      u8g2.print(totalFilesInFolder);
-      u8g2.print(" FOLDER ");
-      u8g2.print(folderIndex);
-      u8g2.print("/");
-      u8g2.print(directoryCount);
+      artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
+    }
+    u8g2.setCursor(0, 21);
+    u8g2.print("Artysta: ");
+    u8g2.print(artistString);
 
-      if (artistString.length() > 33)
-      {
-        artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
-      }
-      u8g2.setCursor(0, 21);
-      u8g2.print("Artysta: ");
-      u8g2.print(artistString);
+    if (titleString.length() > 35)
+    {
+      titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
+    }
+    u8g2.setCursor(0, 31);
+    u8g2.print("Tytul: ");
+    u8g2.print(titleString);
 
-      if (titleString.length() > 35)
-      {
-        titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
-      }
+    if (folderNameString.startsWith("/"))
+    {
+      folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
+    }
+
+    if (folderNameString.length() > 34)
+    {
+      folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
+    }
+    u8g2.setCursor(0, 41);
+    u8g2.print("Folder: ");
+    u8g2.print(folderNameString);
+    u8g2.drawStr(0, 52, "                                           ");
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+    u8g2.drawStr(0, 52, displayString.c_str());
+    u8g2.sendBuffer();
+    Serial.println("Tagi ID3 artysty, tytułu i folderu gotowe do wyświetlenia");
+  }
+  else
+  {
+    // Maksymalna długość wiersza (42 znaki)
+    int maxLineLength = 42;
+    timeDisplay = true;
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setCursor(0, 10);
+    u8g2.print("     ODTWARZANIE PLIKU ");
+    u8g2.print(fileFromBuffer);
+    u8g2.print("/");
+    u8g2.print(totalFilesInFolder);
+    u8g2.print(" FOLDER ");
+    u8g2.print(folderFromBuffer);
+    u8g2.print("/");
+    u8g2.print(directoryCount);
+    u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+
+    // Jeśli długość nazwy pliku przekracza 42 znaki na wiersz
+    if (fileNameString.length() > maxLineLength)
+    {
+      // Pierwszy wiersz - pierwsze 42 znaki
+      String firstLine = fileNameString.substring(0, maxLineLength);
+      // Drugi wiersz - pozostałe znaki
+      String secondLine = fileNameString.substring(maxLineLength);
       u8g2.setCursor(0, 31);
-      u8g2.print("Tytul: ");
-      u8g2.print(titleString);
-
-      if (folderNameString.startsWith("/"))
-      {
-        folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
-      }
-
-      if (folderNameString.length() > 34)
-      {
-        folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
-      }
+      u8g2.print(firstLine);
       u8g2.setCursor(0, 41);
-      u8g2.print("Folder: ");
-      u8g2.print(folderNameString);
-      u8g2.drawStr(0, 52, "                                           ");
-      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-      u8g2.drawStr(0, 52, displayString.c_str());
-      u8g2.sendBuffer();
-      Serial.println("Tagi ID3 artysty, tytułu i folderu gotowe do wyświetlenia");
+      u8g2.print(secondLine);
     }
     else
     {
-      timeDisplay = true;
-      u8g2.clearBuffer();
-      u8g2.setFont(u8g2_font_spleen6x12_mr);
-      u8g2.setCursor(0, 10);
-      u8g2.print("     ODTWARZANIE PLIKU ");
-      u8g2.print(fileFromBuffer);
-      u8g2.print("/");
-      u8g2.print(totalFilesInFolder);
-      u8g2.print(" FOLDER ");
-      u8g2.print(folderFromBuffer);
-      u8g2.print("/");
-      u8g2.print(directoryCount);
-      u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+      // Jeśli nazwa pliku mieści się w jednym wierszu
       u8g2.setCursor(0, 31);
       u8g2.print(fileNameString);
-      u8g2.drawStr(0, 52, "                                           ");
-      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-      u8g2.drawStr(0, 52, displayString.c_str());
-      u8g2.sendBuffer();
-      Serial.println("Brak prawidłowych tagów ID3 do wyświetlenia");
     }
+    u8g2.drawStr(0, 52, "                                           ");
+    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
+    u8g2.drawStr(0, 52, displayString.c_str());
+    u8g2.sendBuffer();
+    Serial.println("Brak prawidłowych tagów ID3 do wyświetlenia");
   }
 }
 
@@ -1359,7 +1369,6 @@ void handleEncoder1Rotation()
   prev_CLK_state1 = CLK_state1;
 }
 
-
 // Obsługa kółka enkodera 2 podczas dzialania odtwarzacza plików
 void handleEncoder2Rotation() 
 {
@@ -1400,7 +1409,6 @@ void handleEncoder2Rotation()
   }
   prev_CLK_state2 = CLK_state2;
 }
-
 
 // Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
 void displayFolders()
@@ -1454,7 +1462,6 @@ void displayFolders()
   u8g2.setDrawColor(1);  // Biały kolor rysowania
   u8g2.sendBuffer();
 }
-
 
 // Funkcja do wyświetlania listy stacji radiowych z opcją wyboru poprzez zaznaczanie w negatywie
 void displayStations()
@@ -1707,7 +1714,6 @@ void readStationFromSD()
   }
 }
 
-
 void setup()
 {
   // Ustaw pin CS dla karty SD jako wyjście i ustaw go na wysoki stan
@@ -1947,64 +1953,11 @@ void loop()
   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
   if (displayActive && (millis() - displayStartTime >= displayTimeout))   
   {
-    // Parametry
-    const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
-    String currentLine = "";  // Bieżąca linia
-    int yPosition = 21;  // Początkowa pozycja Y
-
-    // Podziel tekst na wyrazy
-    String word;
-    int wordStart = 0;
-
-    u8g2.clearBuffer();	
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
-    u8g2.drawStr(0, 10, stationName.c_str());
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
-
-    for (int i = 0; i <= stationString.length(); i++)
-    {
-      // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
-      if (i == stationString.length() || stationString.charAt(i) == ' ')
-      {
-        // Pobierz słowo
-        String word = stationString.substring(wordStart, i);
-        wordStart = i + 1;
-
-        // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
-        if (currentLine.length() + word.length() <= maxLineLength)
-        {
-          // Dodaj słowo do bieżącej linii
-          if (currentLine.length() > 0)
-          {
-            currentLine += " ";  // Dodaj spację między słowami
-          }
-          currentLine += word;
-        }
-        else
-        {
-          // Jeśli słowo nie pasuje, wyświetl bieżącą linię i przejdź do nowej linii
-          u8g2.drawStr(0, yPosition, currentLine.c_str());
-          yPosition += 10;  // Przesunięcie w dół dla kolejnej linii
-
-          // Zresetuj bieżącą linię i dodaj nowe słowo
-          currentLine = word;
-        }
-      }
-    }
-
-    // Wyświetl ostatnią linię, jeśli coś zostało
-    if (currentLine.length() > 0)
-    {
-      u8g2.drawStr(0, yPosition, currentLine.c_str());
-    }
-    u8g2.sendBuffer();
-
     displayActive = false;
     timeDisplay = true;
     listedStations = false;
     menuEnable = false;
-    currentOption = INTERNET_RADIO;
+    displayRadio();
   }
   
   if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))

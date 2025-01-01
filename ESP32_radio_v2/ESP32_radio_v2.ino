@@ -1979,6 +1979,9 @@ void loop()
 
   if ((currentOption == INTERNET_RADIO) && (button1.isPressed()) && (menuEnable == true))
   {
+    menuEnable = false;
+    volumeValue = 12;
+    audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
     changeStation();
   }
 

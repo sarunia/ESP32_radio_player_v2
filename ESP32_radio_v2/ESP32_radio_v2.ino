@@ -67,7 +67,7 @@ int folderFromBuffer = 0;         // Numer aktualnie wybranego folderu do przywr
 int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę plików w folderze
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
-int maxVisibleLines = 5;          // Maksymalna liczba widocznych linii na ekranie OLED
+int maxVisibleLines = 4;          // Maksymalna liczba widocznych linii na ekranie OLED
 bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty
 bool encoderButton2 = false;      // Flaga określająca, czy przycisk enkodera 2 został wciśnięty
 bool fileEnd = false;             // Flaga sygnalizująca koniec odtwarzania pliku audio
@@ -1380,9 +1380,9 @@ void handleEncoder2Rotation()
     if (digitalRead(DT_PIN2) == HIGH) 
     {
       folderIndex--;
-      if (folderIndex < 1)
+      if (folderIndex < 0)
       {
-          folderIndex = 1;
+          folderIndex = 0;
       }
       Serial.print("Numer folderu do tyłu: ");
       Serial.println(folderIndex);
@@ -1424,7 +1424,7 @@ void displayFolders()
   int displayRow = 1;  // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
 
   // Wyświetlanie katalogów zaczynając od pierwszej widocznej linii
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 6, directoryCount); i++)
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, directoryCount); i++)
   {
     String fullPath = directories[i];
 
@@ -1434,14 +1434,14 @@ void displayFolders()
       // Sprawdź, czy ścieżka zaczyna się od aktualnego katalogu
       if (fullPath.startsWith(currentDirectory))
       {
-        // Ogranicz długość do 40 znaków
-        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 40);
+        // Ogranicz długość do 42 znaków
+        String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 42);
 
         // Podświetlenie zaznaczonego katalogu
         if (i == currentSelection)
         {
           u8g2.setDrawColor(1);  // Biały kolor tła
-          u8g2.drawBox(0, displayRow * 11, 256, 10);  // Narysuj prostokąt jako tło dla zaznaczonego folderu
+          u8g2.drawBox(0, displayRow * 13 - 2, 256, 13);  // Narysuj prostokąt jako tło dla zaznaczonego folderu
           u8g2.setDrawColor(0);  // Czarny kolor tekstu
         }
         else
@@ -1450,8 +1450,7 @@ void displayFolders()
         }
 
         // Wyświetl ścieżkę
-        u8g2.setCursor(0, displayRow * 10 + 11);  // Ustaw kursor dla danej linii
-        u8g2.print(displayedPath);  // Wyświetl nazwę katalogu
+        u8g2.drawStr(0, displayRow * 13 + 8 ,String(displayedPath).c_str());
 
         // Przesuń się do kolejnego wiersza
         displayRow++;
@@ -1493,7 +1492,7 @@ void displayStations()
     if (i == currentSelection)
     {
       u8g2.setDrawColor(1);  // Ustaw biały kolor rysowania
-      u8g2.drawBox(0, displayRow * 11, 256, 10);  // Narysuj prostokąt jako tło dla zaznaczonej stacji (x=0, szerokość 256, wysokość 10)
+      u8g2.drawBox(0, displayRow * 13 - 2, 256, 13);  // Narysuj prostokąt jako tło dla zaznaczonej stacji (x=0, szerokość 256, wysokość 10)
       u8g2.setDrawColor(0);  // Zmień kolor rysowania na czarny dla tekstu zaznaczonej stacji
     }
     else
@@ -1502,8 +1501,7 @@ void displayStations()
     }
 
     // Wyświetl nazwę stacji, ustawiając kursor na odpowiedniej pozycji
-    u8g2.setCursor(0, displayRow * 10 + 11);  // Kursor dla danej linii (x=0, y=21 + 10 * numer_wiersza)
-    u8g2.print(station);  // Wyświetl nazwę stacji
+    u8g2.drawStr(0, displayRow * 13 + 8 , String(station).c_str());
 
     // Przejdź do następnej linii (następny wiersz na ekranie)
     displayRow++;
@@ -1969,7 +1967,7 @@ void loop()
     }
     folderIndex = 1;
     currentSelection = 0;
-    firstVisibleLine = 0;
+    firstVisibleLine = 1;
     listDirectories("/");
     audio.stopSong();
     volumeValue = 15;

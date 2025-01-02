@@ -910,6 +910,56 @@ void displayMenu()
 }
 
 
+// Funkcja do porównywania ciągów uwzględniająca liczby
+int compareStringsWithNumbers(const String &a, const String &b)
+{
+  int i = 0, j = 0;
+  
+  while (i < a.length() && j < b.length())
+  {
+    // Wyciągnij kolejne znaki
+    char charA = a[i];
+    char charB = b[j];
+    
+    // Sprawdź, czy mamy do czynienia z liczbą w obu ciągach
+    if (isdigit(charA) && isdigit(charB))
+    {
+      // Wyciągnij pełne liczby
+      String numA, numB;
+      while (i < a.length() && isdigit(a[i]))
+      {
+        numA += a[i++];
+      }
+      while (j < b.length() && isdigit(b[j]))
+      {
+        numB += b[j++];
+      }
+
+      // Porównaj liczby jako liczby (nie tekstowo)
+      int intA = numA.toInt();
+      int intB = numB.toInt();
+      
+      if (intA != intB)
+      {
+        return intA - intB;
+      }
+    } 
+    else
+    {
+      // Porównaj inne znaki
+      if (charA != charB)
+      {
+        return charA - charB;
+      }
+      i++;
+      j++;
+    }
+  }
+  
+  // Jeżeli wszystko jest równe, porównaj długości
+  return a.length() - b.length();
+}
+
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
 {
   directoryCount = 0;
@@ -928,20 +978,24 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
     {
       // Utwórz pełną ścieżkę
       String path = currentPath + "/" + entry.name();
-      directories[directoryCount] = path; // Zapisz ścieżkę do tablicy
-      directoryCount++; // Zwiększ licznik katalogów
+      
+      // Sprawdź, czy katalog to nie "System Volume Information"
+      if (path != "/System Volume Information")
+      {
+        directories[directoryCount] = path; // Zapisz ścieżkę do tablicy
+        directoryCount++; // Zwiększ licznik katalogów
+      }
     }
 
     entry.close();
   }
 
-  // Sortowanie katalogów alfabetycznie
+  // Sortowanie katalogów za pomocą funkcji porównującej
   for (int i = 0; i < directoryCount - 1; i++)
   {
     for (int j = i + 1; j < directoryCount; j++)
     {
-      // Porównaj ścieżki i zamień, jeśli są w złej kolejności
-      if (directories[i] > directories[j])
+      if (compareStringsWithNumbers(directories[i], directories[j]) > 0)
       {
         String temp = directories[i];
         directories[i] = directories[j];
@@ -961,12 +1015,10 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
   // Wyświetl na ekranie, jeśli to nie System Volume Information
   for (int i = 0; i < directoryCount; i++)
   {
-    if (directories[i] != "/System Volume Information")
-    {
-      String fullPath = directories[i];
-    }
+    String fullPath = directories[i];
   }
 }
+
 
 
 // Funkcja do wylistowania katalogów z karty 
@@ -1244,7 +1296,7 @@ void displayPlayer()
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount - 1);
+    u8g2.print(directoryCount);
 
     if (artistString.length() > 33)
     {
@@ -1291,7 +1343,7 @@ void displayPlayer()
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount - 1);
+    u8g2.print(directoryCount);
     u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
 
     // Jeśli długość nazwy pliku przekracza 42 znaki na wiersz

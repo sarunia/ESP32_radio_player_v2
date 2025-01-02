@@ -1257,10 +1257,6 @@ void displayPlayer()
       folderNameString = folderNameString.substring(1); // Usuń pierwszy ukośnik
     }
 
-    if (folderNameString.length() > 34)
-    {
-      folderNameString = folderNameString.substring(0, 34); // Ogranicz długość tekstu do 34 znaków
-    }
     u8g2.setCursor(0, 41);
     u8g2.print("Folder: ");
     u8g2.print(folderNameString);

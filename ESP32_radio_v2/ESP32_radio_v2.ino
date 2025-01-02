@@ -947,13 +947,10 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
       // Jeżeli to nie katalog System Volume Information, wydrukuj na ekranie OLED
       if (path != "/System Volume Information")
       {
-        for (int i = 1; i < 7; i++)
+        for (int i = 0; i < directoryCount; i++)
         {
           // Przygotuj pełną ścieżkę dla wyświetlenia
           String fullPath = directories[i];
-          
-          // Ogranicz długość do 21 znaków
-          fullPath = fullPath.substring(1, 22);
         }
       }
     }
@@ -1237,7 +1234,7 @@ void displayPlayer()
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount);
+    u8g2.print(directoryCount - 1);
 
     if (artistString.length() > 33)
     {
@@ -1288,7 +1285,7 @@ void displayPlayer()
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount);
+    u8g2.print(directoryCount - 1);
     u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
 
     // Jeśli długość nazwy pliku przekracza 42 znaki na wiersz

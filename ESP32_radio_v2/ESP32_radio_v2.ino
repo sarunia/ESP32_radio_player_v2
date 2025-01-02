@@ -909,51 +909,65 @@ void displayMenu()
   u8g2.sendBuffer();
 }
 
+
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
 {
   directoryCount = 0;
+
+  // Przejrzyj wszystkie pliki w katalogu
   while (true)
   {
-    // Otwórz kolejny plik w katalogu
     File entry = dir.openNextFile();
     
-    // Jeżeli nie ma więcej plików, przerwij pętlę
     if (!entry)
     {
-      break;
+      break; // Koniec plików
     }
 
-    // Sprawdź, czy to katalog
     if (entry.isDirectory())
     {
-      // Utwórz pełną ścieżkę do bieżącego katalogu
+      // Utwórz pełną ścieżkę
       String path = currentPath + "/" + entry.name();
-
-      // Zapisz pełną ścieżkę do tablicy
-      directories[directoryCount] = path;
-      
-      // Wydrukuj numer indeksu i pełną ścieżkę
-      Serial.print(directoryCount);
-      Serial.print(": ");
-      Serial.println(path.substring(1));
-      
-      // Zwiększ licznik katalogów
-      directoryCount++;
-      
-      // Jeżeli to nie katalog System Volume Information, wydrukuj na ekranie OLED
-      if (path != "/System Volume Information")
-      {
-        for (int i = 0; i < directoryCount; i++)
-        {
-          // Przygotuj pełną ścieżkę dla wyświetlenia
-          String fullPath = directories[i];
-        }
-      }
+      directories[directoryCount] = path; // Zapisz ścieżkę do tablicy
+      directoryCount++; // Zwiększ licznik katalogów
     }
-    // Zamknij plik
+
     entry.close();
   }
+
+  // Sortowanie katalogów alfabetycznie
+  for (int i = 0; i < directoryCount - 1; i++)
+  {
+    for (int j = i + 1; j < directoryCount; j++)
+    {
+      // Porównaj ścieżki i zamień, jeśli są w złej kolejności
+      if (directories[i] > directories[j])
+      {
+        String temp = directories[i];
+        directories[i] = directories[j];
+        directories[j] = temp;
+      }
+    }
+  }
+
+  // Wydrukuj na serial terminalu alfabetycznie posortowane katalogi
+  for (int i = 0; i < directoryCount; i++)
+  {
+    Serial.print(i + 1); // Drukuje alfabetyczny numer katalogu
+    Serial.print(": ");
+    Serial.println(directories[i].substring(1)); // Drukuje ścieżkę bez pierwszego znaku
+  }
+
+  // Wyświetl na ekranie, jeśli to nie System Volume Information
+  for (int i = 0; i < directoryCount; i++)
+  {
+    if (directories[i] != "/System Volume Information")
+    {
+      String fullPath = directories[i];
+    }
+  }
 }
+
 
 // Funkcja do wylistowania katalogów z karty 
 void listDirectories(const char *dirname)

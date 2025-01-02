@@ -111,7 +111,7 @@ File myFile; // Uchwyt pliku
 
 U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI dla wyświetlacza
 
-// Konfiguracja nowego SPI z wybranymi pinami dla czytnika kart SD
+// Konfiguracja dodatkowego SPI z wybranymi pinami dla czytnika kart SD
 SPIClass customSPI = SPIClass(HSPI); // Używamy HSPI, ale z własnymi pinami
 const int SD_CS_PIN = 47;  // Pin CS dla czytnika SD
 
@@ -143,7 +143,7 @@ MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (dom
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
 bool isAudioFile(const char *filename)
 {
-  // Znajdź ostatni wystąpienie kropki w nazwie pliku
+  // Znajdź ostatnie wystąpienie kropki w nazwie pliku
   const char *ext = strrchr(filename, '.');
   
   // Jeśli nie znaleziono kropki lub nie ma rozszerzenia, zwróć false
@@ -298,8 +298,6 @@ void getWeatherData()
 // Funkcja do aktualizacji danych pogodowych
 void updateWeather()
 {
-  u8g2.drawStr(0, 62, "                                           "); // Wypełnienie spacjami jako czyszczenie linii
-
   JsonObject root = doc.as<JsonObject>();  // Konwertuje dokument JSON do obiektu typu JsonObject
 
   JsonObject main = root["main"];  // Pobiera obiekt "main" zawierający dane główne, takie jak temperatura, wilgotność, ciśnienie
@@ -361,24 +359,22 @@ void updateWeather()
 // Funkcja do przełączania między różnymi danymi pogodowymi, które są wyświetlane na ekranie
 void switchWeatherData()
 {
+  u8g2.drawStr(0, 62, "                                           "); // Wypełnienie spacjami jako czyszczenie linii
   u8g2.setFont(u8g2_font_spleen6x12_mr);
   if (timeDisplay == true)
   {
     if (cycle == 0)
     {
-      u8g2.drawStr(0, 62, "                                           ");
       u8g2.drawStr(0, 62, tempStr.c_str());
       u8g2.drawStr(130, 62, feels_likeStr.c_str()); 
     } 
     else if (cycle == 1)
     {
-      u8g2.drawStr(0, 62, "                                           ");
       u8g2.drawStr(0, 62, windStr.c_str());
       u8g2.drawStr(110, 62, windGustStr.c_str());
     } 
     else if (cycle == 2)
     {
-      u8g2.drawStr(0, 62, "                                           ");
       u8g2.drawStr(0, 62, humidityStr.c_str());
       u8g2.drawStr(115, 62, pressureStr.c_str());
     }

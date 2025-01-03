@@ -29,7 +29,7 @@
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
 #define MAX_STATIONS 100          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
-#define MAX_FILES 100             // Maksymalna liczba plików lub katalogów w tablicy directories
+#define MAX_FILES 128             // Maksymalna liczba plików lub katalogów w tablicy directories
 #define STATIONS_URL    "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
@@ -139,6 +139,30 @@ enum MenuOption
   BANK_LIST,           // Lista banków stacji radiowych
 };
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
+
+
+
+/*===============    Definicja pinów i deklaracje zmiennych do obsługi joysticka    =============*/
+const int xPin = 16;  // Oś X (ADC)
+const int yPin = 17;  // Oś Y (ADC)
+const int swPin = 18; // Przycisk SW
+
+// Debouncing przycisku joysticka
+unsigned long lastButtonPress = 0;
+const unsigned long buttonDebounceDelay = 200;
+int lastButtonState = HIGH;
+
+// Progi dla skrajnych pozycji
+const int leftThreshold = 100;  // Skrajne położenie w lewo
+const int rightThreshold = 3900;  // Skrajne położenie w prawo
+const int neutralPosition = 2925; // Neutralna pozycja
+
+// Flagi do monitorowania stanu joysticka
+bool joystickMovedLeft = false;
+bool joystickMovedRight = false;
+bool joystickPressed = false;
+
+
 
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
 bool isAudioFile(const char *filename)
@@ -1767,6 +1791,83 @@ void readStationFromSD()
   }
 }
 
+
+// Funkcja do obsługi joysticka w osi X oraz jego przycisku
+void handleJoystick()
+{
+  int xValue = analogRead(xPin); // Odczyt wartości z osi X
+  
+  // Sprawdzenie, czy joystick jest w skrajnej pozycji w lewo
+  if (xValue <= leftThreshold && !joystickMovedLeft)
+  {
+    Serial.print("Odczyt z osi X: ");
+    Serial.print(xValue);
+    Serial.println(" - Joystick w lewo");
+    joystickMovedLeft = true; // Ustawienie flagi dla lewego ruchu
+    mp3 = aac = flac = false;
+    if (currentOption == INTERNET_RADIO)
+    {
+      station_nr++;
+      if (station_nr > stationsCount)
+      {
+        station_nr = 1;
+      }
+      Serial.println(station_nr);
+      changeStation();
+    }
+  }
+  
+  // Sprawdzenie, czy joystick jest w skrajnej pozycji w prawo
+  else if (xValue >= rightThreshold && !joystickMovedRight)
+  {
+    Serial.print("Odczyt z osi X: ");
+    Serial.print(xValue);
+    Serial.println(" - Joystick w prawo");
+    joystickMovedRight = true; // Ustawienie flagi dla prawego ruchu
+    mp3 = aac = flac = false;
+    if (currentOption == INTERNET_RADIO)
+    {
+      station_nr--;
+      if (station_nr < 1)
+      {
+        station_nr = stationsCount;
+      }
+      Serial.println(station_nr);
+      changeStation();
+    }
+  }
+
+  // Sprawdzenie, czy joystick wrócił do pozycji neutralnej
+  if (xValue >= neutralPosition - 10 && xValue <= neutralPosition + 10)
+  {
+    // Resetowanie flag, kiedy joystick wróci do pozycji neutralnej
+    joystickMovedLeft = false;
+    joystickMovedRight = false;
+  }
+
+  // Sprawdzenie stanu przycisku SW
+  int swState = digitalRead(swPin);
+  unsigned long currentMillis = millis();
+
+  // Reaguj tylko na pierwsze naciśnięcie, a potem ignoruj
+  if (swState == LOW && lastButtonState == HIGH && currentMillis - lastButtonPress > buttonDebounceDelay)
+  {
+    Serial.println("Przycisk SW wciśnięty");
+    joystickPressed = true; // Zmieniamy stan flagi, aby już nie reagować na kolejne wciśnięcia
+    lastButtonPress = currentMillis; // Zapisanie czasu ostatniego naciśnięcia
+  }
+
+  // Resetowanie flagi przycisku, gdy przycisk jest zwolniony
+  if (swState == HIGH && joystickPressed)
+  {
+    joystickPressed = false;  // Flaga jest resetowana, by umożliwić ponowne reagowanie na naciśnięcie
+  }
+
+  // Zaktualizowanie stanu przycisku
+  lastButtonState = swState;
+}
+
+
 void setup()
 {
   // Ustaw pin CS dla karty SD jako wyjście i ustaw go na wysoki stan
@@ -1781,6 +1882,12 @@ void setup()
     // Inicjalizacja przycisków enkoderów jako wejścia
   pinMode(SW_PIN1, INPUT_PULLUP);
   pinMode(SW_PIN2, INPUT_PULLUP);
+
+   // Inicjalizacja pinów joysticka
+  pinMode(xPin, INPUT);
+  pinMode(yPin, INPUT);
+  pinMode(swPin, INPUT_PULLUP);
+
 
   // Odczytaj początkowy stan pinu CLK enkodera
   prev_CLK_state1 = digitalRead(CLK_PIN1);
@@ -1857,6 +1964,7 @@ void loop()
   button1.loop();          // Wykonuje pętlę dla obiektu button1 (sprawdza stan przycisku z enkodera 1)
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
+  handleJoystick();
 
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki

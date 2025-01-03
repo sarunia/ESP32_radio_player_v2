@@ -1797,7 +1797,7 @@ void handleJoystick()
 {
   int xValue = analogRead(xPin); // Odczyt wartości z osi X
   
-  // Sprawdzenie, czy joystick jest w skrajnej pozycji w lewo
+  / Sprawdzenie, czy joystick jest w skrajnej pozycji w lewo
   if (xValue <= leftThreshold && !joystickMovedLeft)
   {
     Serial.print("Odczyt z osi X: ");
@@ -1807,10 +1807,10 @@ void handleJoystick()
     mp3 = aac = flac = false;
     if (currentOption == INTERNET_RADIO)
     {
-      station_nr++;
-      if (station_nr > stationsCount)
+      station_nr--;
+      if (station_nr < 1)
       {
-        station_nr = 1;
+        station_nr = stationsCount;
       }
       Serial.println(station_nr);
       changeStation();
@@ -1827,10 +1827,10 @@ void handleJoystick()
     mp3 = aac = flac = false;
     if (currentOption == INTERNET_RADIO)
     {
-      station_nr--;
-      if (station_nr < 1)
+      station_nr++;
+      if (station_nr > stationsCount)
       {
-        station_nr = stationsCount;
+        station_nr = 1;
       }
       Serial.println(station_nr);
       changeStation();

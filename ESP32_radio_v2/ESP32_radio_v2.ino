@@ -82,6 +82,8 @@ bool listedStations = false;      // Flaga określająca, czy na ekranie jest po
 bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
 bool bankMenuEnable = false;      // Flaga określająca, czy na ekranie jest wyświetlone menu wyboru banku
 bool bitratePresent = false;      // Flaga określająca, czy na serial terminalu pojawiła się informacja o bitrate - jako ostatnia dana spływajaca z info
+bool playNextFile = false;
+bool playPreviousFile = false;
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -403,7 +405,7 @@ void switchWeatherData()
       u8g2.drawStr(115, 62, pressureStr.c_str());
     }
 
-      u8g2.sendBuffer();
+    u8g2.sendBuffer();
   }
   // Zmiana cyklu: przechodzimy do następnego zestawu danych
   cycle++;
@@ -1138,8 +1140,8 @@ void playFromSelectedFolder()
   // Odtwarzanie plików
   while (fileIndex <= totalFilesInFolder && !playNextFolder)
   {
-    u8g2.clearBuffer();
-    u8g2.sendBuffer();
+    //u8g2.clearBuffer();
+    //u8g2.sendBuffer();
     File entry = root.openNextFile();
     if (!entry)
     {
@@ -1182,6 +1184,7 @@ void playFromSelectedFolder()
       audio.loop(); 
       button1.loop();
       button2.loop();
+      handleJoystick();
 
       // Jeśli skończył się plik, przejdź do następnego
       if (fileEnd)
@@ -1190,6 +1193,69 @@ void playFromSelectedFolder()
         id3tag = false;
         fileIndex++;
         break;
+      }
+
+      if (playNextFile == true)
+      {
+        counter = 0;
+        playNextFile = false;
+        isPlaying = false;
+        audio.stopSong();
+        fileIndex++;
+        if (fileIndex > totalFilesInFolder)
+        {
+          Serial.println("To jest ostatni plik w folderze");
+          folderIndex++;
+          playFromSelectedFolder();
+        }
+        break;
+      }
+
+      if (playPreviousFile == true)
+      {
+        counter = 0;
+        playPreviousFile = false;
+        isPlaying = false;
+        audio.stopSong();
+        fileIndex--;
+        if (fileIndex < 1)
+        {
+          Serial.println("To jest pierwszy plik w folderze");
+          fileIndex = 1;
+        }
+        fileFromBuffer = fileIndex;
+        root.rewindDirectory(); // Przewiń katalog na początek
+        entry = root.openNextFile(); // Otwórz pierwszy plik w katalogu
+
+        // Przesuń się do wybranego pliku
+        for (int i = 1; i < fileIndex; i++)
+        {
+          entry = root.openNextFile();
+          if (!entry)
+          {
+              break; // Wyjdź, jeśli nie znaleziono pliku
+          }
+        }
+        
+        // Sprawdź, czy udało się otworzyć plik
+        if (entry)
+        {
+          // Zaktualizuj pełną ścieżkę do pliku
+          String fullPath = folderNameString + "/" + entry.name();
+
+          // Odtwórz tylko w przypadku, gdy to jest szukany plik
+          if (isAudioFile(entry.name()))
+          {
+            audio.connecttoFS(SD, fullPath.c_str());
+            isPlaying = true;
+            Serial.print("Odtwarzanie pliku: ");
+            Serial.print(fileFromBuffer); // Numeracja pliku
+            Serial.print("/");
+            Serial.print(totalFilesInFolder); // Łączna liczba plików w folderze
+            Serial.print(" - ");
+            Serial.println(fileName);
+          }
+        }
       }
 
       if (button2.isPressed())
@@ -1797,7 +1863,7 @@ void handleJoystick()
 {
   int xValue = analogRead(xPin); // Odczyt wartości z osi X
   
-  / Sprawdzenie, czy joystick jest w skrajnej pozycji w lewo
+  // Sprawdzenie, czy joystick jest w skrajnej pozycji w lewo
   if (xValue <= leftThreshold && !joystickMovedLeft)
   {
     Serial.print("Odczyt z osi X: ");
@@ -1812,8 +1878,18 @@ void handleJoystick()
       {
         station_nr = stationsCount;
       }
+      Serial.print("Wybrany numer stacji: ");
       Serial.println(station_nr);
       changeStation();
+    }
+    if (currentOption == PLAY_FILES)
+    {
+      playPreviousFile = true;
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setCursor(0, 10);
+      u8g2.print("     LADOWANIE PLIKU, CZEKAJ... ");
+      u8g2.sendBuffer();
     }
   }
   
@@ -1832,8 +1908,18 @@ void handleJoystick()
       {
         station_nr = 1;
       }
+      Serial.print("Wybrany numer stacji: ");
       Serial.println(station_nr);
       changeStation();
+    }
+    if (currentOption == PLAY_FILES)
+    {
+      playNextFile = true;
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setCursor(0, 10);
+      u8g2.print("     LADOWANIE PLIKU, CZEKAJ... ");
+      u8g2.sendBuffer();
     }
   }
 

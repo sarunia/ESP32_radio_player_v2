@@ -155,7 +155,7 @@ const unsigned long buttonDebounceDelay = 200;
 int lastButtonState = HIGH;
 
 // Progi dla skrajnych pozycji
-const int leftThreshold = 100;  // Skrajne położenie w lewo
+const int leftThreshold = 50;  // Skrajne położenie w lewo
 const int rightThreshold = 3900;  // Skrajne położenie w prawo
 const int neutralPosition = 2925; // Neutralna pozycja
 
@@ -286,7 +286,8 @@ void getWeatherData()
 {
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";  // URL z danymi do API, na końcu musi być Twój unikalny klucz API otrzymany po resetracji w serwisie openweathermap.org
+  // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -463,8 +464,8 @@ void saveStationToEEPROM(const char* station)
         EEPROM.write(stationsCount * (STATION_NAME_LENGTH + 1) + 1 + i, station[i]);
       }
 
-      // Potwierdź zapis do pamięci EEPROM.
-      EEPROM.commit();
+      // Potwierdź zapis do pamięci EEPROM - czasowe wyłączenie na testy
+      //EEPROM.commit();
 
       // Wydrukuj informację o zapisanej stacji na Serialu.
       Serial.println(String(stationsCount + 1) + "   " + String(station)); // Drukowanie na serialu od nr 1 jak w banku na serwerze
@@ -542,6 +543,10 @@ void changeStation()
   if (stationUrl.isEmpty())
   {
     Serial.println("Błąd: Nie znaleziono stacji dla podanego numeru.");
+    Serial.print("Numer stacji:");
+    Serial.println(station_nr);
+    Serial.print("Numer banku:");
+    Serial.println(bank_nr);
     return;
   }
 
@@ -1054,6 +1059,7 @@ void listDirectories(const char *dirname)
   if (!root)
   {
     Serial.println("Błąd otwarcia katalogu!");
+    Serial.println(dirname);
     return;
   }
   printDirectoriesAndSavePaths(root, 0, ""); // Początkowo pełna ścieżka jest pusta
@@ -1127,6 +1133,7 @@ void playFromSelectedFolder()
   while (File entry = root.openNextFile())
   {
     String fileName = entry.name();
+    Serial.println(fileName);
     if (isAudioFile(fileName.c_str()))
     {
         totalFilesInFolder++;
@@ -1140,8 +1147,6 @@ void playFromSelectedFolder()
   // Odtwarzanie plików
   while (fileIndex <= totalFilesInFolder && !playNextFolder)
   {
-    //u8g2.clearBuffer();
-    //u8g2.sendBuffer();
     File entry = root.openNextFile();
     if (!entry)
     {
@@ -1168,6 +1173,7 @@ void playFromSelectedFolder()
 
     // Pełna ścieżka do pliku
     String fullPath = folderNameString + "/" + fileName;
+    Serial.println(fullPath);
 
     // Odtwarzaj plik
     audio.connecttoFS(SD, fullPath.c_str());
@@ -1275,7 +1281,7 @@ void playFromSelectedFolder()
 
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
-      backDisplayPlayer();         // Obsługa bezczynności, przywrócenie wyświetlania danych audio
+      backDisplayPlayer();       // Obsługa bezczynności, przywrócenie wyświetlania danych audio
     }
 
     // Jeśli encoderButton1 aktywowany, wyjdź z pętli
@@ -1999,6 +2005,8 @@ void setup()
     return;
   }
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
+  Serial.print("Numer seryjny ESP:");
+  Serial.println(ESP.getEfuseMac()); // Wyświetla unikalny adres MAC ESP32
   
   // Inicjalizuj pamięć EEPROM z odpowiednim rozmiarem
   EEPROM.begin(MAX_STATIONS * STATION_NAME_LENGTH); // 100 * 42
@@ -2041,6 +2049,10 @@ void setup()
   else
   {
     Serial.println("Brak połączenia z siecią WiFi");
+    u8g2.clearBuffer();	
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(0, 40, "WIFI NOT CONNECTED");
+    u8g2.sendBuffer();
   }
 }
 
@@ -2082,17 +2094,6 @@ void loop()
           else
           {
             currentOption = BANK_LIST;
-          }
-          break;
-          
-        case BANK_LIST:
-          if (DT_state1 == HIGH)
-          {
-            currentOption = INTERNET_RADIO;
-          }
-          else
-          {
-            currentOption = PLAY_FILES;
           }
           break;
       }
@@ -2204,6 +2205,7 @@ void loop()
     timeDisplay = true;
     listedStations = false;
     menuEnable = false;
+    currentOption = INTERNET_RADIO;
     displayRadio();
   }
   

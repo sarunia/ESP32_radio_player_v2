@@ -2125,7 +2125,7 @@ void loop()
     displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
     displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
 
-    if (currentOption == INTERNET_RADIO)  // Przewijanie listy stacji radiowych
+    if ((currentOption == INTERNET_RADIO) &&  (bankChange == false))  // Przewijanie listy stacji radiowych
     {
       station_nr = currentSelection + 1;
       if (digitalRead(DT_PIN2) == HIGH)  // Obracanie w lewo
@@ -2220,7 +2220,7 @@ void loop()
     changeStation();
   }
 
-  if ((currentOption == INTERNET_RADIO) && button2.isReleased())
+  if ((currentOption == INTERNET_RADIO) && button2.isReleased() && (bankChange == false))
   {
     changeStation();
   }

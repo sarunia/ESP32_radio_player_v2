@@ -80,10 +80,10 @@ bool id3tag = false;              // Flaga określająca, czy plik audio posiada
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
 bool listedStations = false;      // Flaga określająca, czy na ekranie jest pokazana lista stacji do wyboru
 bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
-bool bankMenuEnable = false;      // Flaga określająca, czy na ekranie jest wyświetlone menu wyboru banku
 bool bitratePresent = false;      // Flaga określająca, czy na serial terminalu pojawiła się informacja o bitrate - jako ostatnia dana spływajaca z info
-bool playNextFile = false;
-bool playPreviousFile = false;
+bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
+bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
+bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -138,11 +138,8 @@ enum MenuOption
 {
   PLAY_FILES,          // Odtwarzacz plików
   INTERNET_RADIO,      // Radio internetowe
-  BANK_LIST,           // Lista banków stacji radiowych
 };
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
-
-
 
 /*===============    Definicja pinów i deklaracje zmiennych do obsługi joysticka    =============*/
 const int xPin = 16;  // Oś X (ADC)
@@ -259,9 +256,8 @@ void handleButtons()
       // Jeśli przycisk jest wciśnięty przez co najmniej 3 sekundy i akcja jeszcze nie była wykonana
       if (millis() - buttonPressTime2 >= 3000 && !action2Taken)
       {
-        bankMenuEnable = true;
         timeDisplay = false;
-        currentOption = BANK_LIST;  // Ustawienie listy banków do przewijania i wyboru
+        bankChange = true;           // Ustawienie listy banków do przewijania i wyboru
 
         Serial.println("Wyświetlenie listy banków");
         u8g2.clearBuffer();	
@@ -2073,30 +2069,20 @@ void loop()
     if (menuEnable == true)  // Przewijanie menu prawym enkoderem
     {
       int DT_state1 = digitalRead(DT_PIN1);
-      switch(currentOption)
+
+      // Obsługa przewijania menu enkoderem
+      if (DT_state1 == HIGH)
       {
-        case PLAY_FILES:
-          if (DT_state1 == HIGH)
-          {
-            currentOption = BANK_LIST;
-          }
-          else
-          {
-            currentOption = INTERNET_RADIO;
-          }
-          break;
-          
-        case INTERNET_RADIO:
-          if (DT_state1 == HIGH)
-          {
-            currentOption = PLAY_FILES;
-          }
-          else
-          {
-            currentOption = BANK_LIST;
-          }
-          break;
+        // Obrót w jedną stronę - inkrementacja
+        currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Cykl pomiędzy 0 a 1
       }
+      else
+      {
+        // Obrót w drugą stronę - dekrementacja
+        currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) - 1 + 2) % 2);  // Cykl pomiędzy 0 a 1
+      }
+
+      // Wyświetl menu po zmianie opcji
       displayMenu();
     }
 
@@ -2167,7 +2153,7 @@ void loop()
       displayStations();  // Aktualizacja wyświetlacza z listą stacji
     }
 
-    if ((currentOption == BANK_LIST) && (bankMenuEnable == true))  // Przewijanie listy banków stacji radiowych
+    if (bankChange == true)  // Przewijanie listy banków stacji radiowych
     {
       if (digitalRead(DT_PIN2) == HIGH)  // Obracanie w lewo
       {
@@ -2209,7 +2195,7 @@ void loop()
     displayRadio();
   }
   
-  if ((currentOption == PLAY_FILES) && (button1.isPressed()) && (menuEnable == true))
+  if ((currentOption == PLAY_FILES) && button1.isPressed() && (menuEnable == true))
   {
     if (!SD.begin(SD_CS))
     {
@@ -2226,7 +2212,7 @@ void loop()
     playFromSelectedFolder();
   }
 
-  if ((currentOption == INTERNET_RADIO) && (button1.isPressed()) && (menuEnable == true))
+  if ((currentOption == INTERNET_RADIO) && button1.isPressed() && (menuEnable == true))
   {
     menuEnable = false;
     volumeValue = 12;
@@ -2234,14 +2220,14 @@ void loop()
     changeStation();
   }
 
-  if ((currentOption == INTERNET_RADIO) && (button2.isReleased()))
+  if ((currentOption == INTERNET_RADIO) && button2.isReleased())
   {
     changeStation();
   }
 
-  if ((currentOption == BANK_LIST) && (button2.isPressed()) && (bankMenuEnable == true))
+  if ((bankChange == true) && button2.isPressed())
   {
-    bankMenuEnable = false;
+    bankChange = false;
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB14_tr);
     u8g2.drawStr(20, 25, "POBIERANIE  STACJI");

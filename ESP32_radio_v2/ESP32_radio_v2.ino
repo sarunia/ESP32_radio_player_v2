@@ -12,10 +12,22 @@
 #include <ArduinoJson.h>          // Biblioteka do parsowania i tworzenia danych w formacie JSON, użyteczna do pracy z API
 #include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
 
-#define SD_CS         47          // Pin CS (Chip Select) do komunikacji z kartą SD, wybierany jako interfejs SPI
-#define SPI_MOSI      39          // Pin MOSI (Master Out Slave In) dla interfejsu SPI
-#define SPI_MISO      0           // Pin MISO (Master In Slave Out) dla interfejsu SPI
-#define SPI_SCK       38          // Pin SCK (Serial Clock) dla interfejsu SPI
+// Definicje pinów dla SPI
+#define SPI_SCK    38             // Pin SCK dla wyświetlacza OLED
+#define SPI_MISO   -1             // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na -1
+#define SPI_MOSI   39             // Pin MOSI dla wyświetlacza OLED
+
+// Definicje pinów dla karty SD
+#define SD_SCK     45             // Pin SCK dla karty SD
+#define SD_MISO    21             // Pin MISO dla karty SD
+#define SD_MOSI    48             // Pin MOSI dla karty SD
+#define SD_CS      47             // Pin CS dla karty SD
+
+// Definicje pinów dla OLED
+#define OLED_CS    42             // Pin CS dla OLED
+#define OLED_DC    40             // Pin DC dla OLED
+#define OLED_RESET 41             // Pin RESET dla OLED
+
 #define I2S_DOUT      13          // Podłączenie do pinu DIN na DAC
 #define I2S_BCLK      12          // Podłączenie po pinu BCK na DAC
 #define I2S_LRC       14          // Podłączenie do pinu LCK na DAC
@@ -111,11 +123,11 @@ String windGustStr;       // Zmienna do przechowywania prędkości porywów wiat
 
 File myFile; // Uchwyt pliku
 
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, /* cs=*/ 42, /* dc=*/ 40, /* reset=*/ 41); // Hardware SPI dla wyświetlacza
+// Inicjalizacja sprzętowego SPI dla wyświetlacza OLED
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R2, OLED_CS, OLED_DC, OLED_RESET);  // Hardware SPI
 
 // Konfiguracja dodatkowego SPI z wybranymi pinami dla czytnika kart SD
-SPIClass customSPI = SPIClass(HSPI); // Używamy HSPI, ale z własnymi pinami
-const int SD_CS_PIN = 47;  // Pin CS dla czytnika SD
+SPIClass customSPI = SPIClass(HSPI);  // Użycie HSPI dla karty SD
 
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
@@ -1265,6 +1277,11 @@ void playFromSelectedFolder()
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
+        u8g2.clearBuffer();
+        u8g2.setFont(u8g2_font_spleen6x12_mr);
+        u8g2.setCursor(0, 10);
+        u8g2.print("  LADOWANIE PLIKOW Z WYBRANEGO FOLDERU... ");
+        u8g2.sendBuffer();
         break;
       }
 
@@ -1985,17 +2002,17 @@ void setup()
   audio.setVolume(volumeValue); // Ustaw głośność na podstawie wartości zmiennej volumeValue w zakresie 0...21
 
   // Inicjalizuj interfejs SPI wyświetlacza
-  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);  // Wykorzystanie SPI bez MISO dla OLED
   SPI.setFrequency(1000000);
 
   // Inicjalizuj komunikację szeregową
   Serial.begin(115200);
 
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD
-  customSPI.begin(45, 21, 48, SD_CS_PIN); // SCLK = 45, MISO = 21, MOSI = 48, CS = 47
+  customSPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);  // Inicjalizacja HSPI dla SD
 
   // Inicjalizacja karty SD
-  if (!SD.begin(SD_CS_PIN, customSPI))
+  if (!SD.begin(SD_CS, customSPI))
   {
     Serial.println("Błąd inicjalizacji karty SD!");
     return;
@@ -2205,6 +2222,11 @@ void loop()
     folderIndex = 1;
     currentSelection = 0;
     firstVisibleLine = 1;
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setCursor(0, 10);
+    u8g2.print("  LADOWANIE FOLDEROW Z KARTY SD, CZEKAJ... ");
+    u8g2.sendBuffer();
     listDirectories("/");
     audio.stopSong();
     volumeValue = 15;

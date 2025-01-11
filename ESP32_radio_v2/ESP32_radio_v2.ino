@@ -13,7 +13,7 @@
 #include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
 
 // Definicje pinów dla SPI wyświetlacza OLED 
-#define SPI_MISO   -1             // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na -1
+#define SPI_MISO   0              // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na -1 (problem zgłaszany na forum, zmieniam na 0 ponownie)
 #define SPI_SCK    38             // Pin SCK dla wyświetlacza OLED
 #define SPI_MOSI   39             // Pin MOSI dla wyświetlacza OLED
 #define OLED_DC    40             // Pin DC dla OLED
@@ -1346,6 +1346,7 @@ void displayRadio()
   // Podziel tekst na wyrazy
   String word;
   int wordStart = 0;
+  processText(stationString);  // Zamiana polskich znaków na ASCII
 
   for (int i = 0; i <= stationString.length(); i++)
   {
@@ -1413,14 +1414,27 @@ void displayPlayer()
     }
     u8g2.setCursor(0, 21);
     u8g2.print("Artysta: ");
+    processText(artistString);  // Zamiana polskich znaków na ASCII
     u8g2.print(artistString);
 
     if (titleString.length() > 35)
     {
       titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
     }
+    // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu 
+    for (int i = 0; i < titleString.length(); i++) {
+      Serial.print("0x");
+      if (titleString[i] < 0x10) {
+        Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
+      }
+      Serial.print(titleString[i], HEX); // Drukowanie znaku jako wartość hex
+      Serial.print(" "); // Dodanie spacji po każdym bajcie
+    }
+    Serial.println(); // Nowa linia po zakończeniu drukowania bajtów
+
     u8g2.setCursor(0, 31);
     u8g2.print("Tytul: ");
+    processText(titleString);  // Zamiana polskich znaków na ASCII
     u8g2.print(titleString);
 
     if (folderNameString.startsWith("/"))
@@ -1430,7 +1444,9 @@ void displayPlayer()
 
     u8g2.setCursor(0, 41);
     u8g2.print("Folder: ");
-    u8g2.print(folderNameString);
+    String folder = folderNameString;
+    processText(folder);  // Zamiana polskich znaków na ASCII
+    u8g2.print(folder);
     u8g2.drawStr(0, 52, "                                           ");
     String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
     u8g2.drawStr(0, 52, displayString.c_str());
@@ -2068,6 +2084,68 @@ void setup()
     u8g2.sendBuffer();
   }
 }
+
+// Funkcja przetwarza tekst, zamieniając polskie znaki diakrytyczne
+void processText(String &text)
+{
+  for (int i = 0; i < text.length(); i++)
+  {
+    switch (text[i])
+    {
+      case (char)0xC2:
+        switch (text[i+1])
+        {
+          case (char)0xB3: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
+          case (char)0x9C: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
+          case (char)0x8C: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
+          case (char)0xB9: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
+          case (char)0x9B: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
+          case (char)0xBF: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
+          case (char)0x9F: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC3:
+        switch (text[i+1])
+        {
+          case (char)0xB1: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
+          case (char)0xB3: text.setCharAt(i, 'o'); break; // Zamiana "ó" na "o"
+          case (char)0xBA: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
+          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC4:
+        switch (text[i+1])
+        {
+          case (char)0x85: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
+          case (char)0x99: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
+          case (char)0x87: text.setCharAt(i, 'c'); break; // Zamiana "ć" na "c"
+          case (char)0x84: text.setCharAt(i, 'A'); break; // Zamiana "Ą" na "A"
+          case (char)0x98: text.setCharAt(i, 'E'); break; // Zamiana "Ę" na "E"
+          case (char)0x86: text.setCharAt(i, 'C'); break; // Zamiana "Ć" na "C"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC5:
+        switch (text[i+1])
+        {
+          case (char)0x82: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
+          case (char)0x84: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
+          case (char)0x9B: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
+          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
+          case (char)0xBC: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
+          case (char)0x83: text.setCharAt(i, 'N'); break; // Zamiana "Ń" na "N"
+          case (char)0x9A: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
+          case (char)0x81: text.setCharAt(i, 'L'); break; // Zamiana "Ł" na "L"
+          case (char)0xB9: text.setCharAt(i, 'Z'); break; // Zamiana "Ź" na "Z"
+        }
+        text.remove(i+1, 1);
+        break;
+    }
+  }
+}
+
 
 void loop()
 {

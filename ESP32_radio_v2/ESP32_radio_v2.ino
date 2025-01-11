@@ -12,25 +12,25 @@
 #include <ArduinoJson.h>          // Biblioteka do parsowania i tworzenia danych w formacie JSON, użyteczna do pracy z API
 #include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
 
-// Definicje pinów dla SPI
-#define SPI_SCK    38             // Pin SCK dla wyświetlacza OLED
+// Definicje pinów dla SPI wyświetlacza OLED 
 #define SPI_MISO   -1             // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na -1
+#define SPI_SCK    38             // Pin SCK dla wyświetlacza OLED
 #define SPI_MOSI   39             // Pin MOSI dla wyświetlacza OLED
+#define OLED_DC    40             // Pin DC dla OLED
+#define OLED_RESET 41             // Pin RESET dla OLED
+#define OLED_CS    42             // Pin CS dla OLED
 
-// Definicje pinów dla karty SD
+// Definicje pinów dla SPI czytnika kart SD
 #define SD_SCK     45             // Pin SCK dla karty SD
 #define SD_MISO    21             // Pin MISO dla karty SD
 #define SD_MOSI    48             // Pin MOSI dla karty SD
 #define SD_CS      47             // Pin CS dla karty SD
 
-// Definicje pinów dla OLED
-#define OLED_CS    42             // Pin CS dla OLED
-#define OLED_DC    40             // Pin DC dla OLED
-#define OLED_RESET 41             // Pin RESET dla OLED
+// Definicje pinów dla I2S modułu DAC z PCM5102A
+#define I2S_DOUT      13          // Podłączenie do pinu DIN na module DAC z PCM5102A
+#define I2S_BCLK      12          // Podłączenie po pinu BCK na module DAC z PCM5102A
+#define I2S_LRC       14          // Podłączenie do pinu LCK na module DAC z PCM5102A
 
-#define I2S_DOUT      13          // Podłączenie do pinu DIN na DAC
-#define I2S_BCLK      12          // Podłączenie po pinu BCK na DAC
-#define I2S_LRC       14          // Podłączenie do pinu LCK na DAC
 #define SCREEN_WIDTH 256          // Szerokość ekranu w pikselach
 #define SCREEN_HEIGHT 64          // Wysokość ekranu w pikselach
 #define CLK_PIN1 6                // Podłączenie z pinu 6 do CLK na enkoderze prawym
@@ -1135,7 +1135,7 @@ void playFromSelectedFolder()
   }
 
   totalFilesInFolder = 0;
-  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderze
+  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderzeplayNextFolder
 
   // Zliczanie plików audio w folderze
   while (File entry = root.openNextFile())

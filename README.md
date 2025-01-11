@@ -18,7 +18,7 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
   
 ## Hardware Requirements
 
-- **ESP32** development board
+- **ESP32-S3 ** development board
 - **PCM5102A DAC Module**
 - **256x64 OLED Display** (SPI-based)
 - **Rotary Encoders** with push buttons (x2)

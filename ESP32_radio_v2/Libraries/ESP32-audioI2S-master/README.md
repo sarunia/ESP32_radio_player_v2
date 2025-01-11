@@ -1,133 +1,87 @@
-# ESP32-audioI2S
+# Internet Radio & Audio Player v2
 
-:warning: **This library only works on multi-core ESP32 chips like the ESP32-S3. It does not work on the ESP32-S2 or the ESP32-C3** :warning:
+## Overview
 
-Plays mp3, m4a and wav files from SD card via I2S with external hardware.
-HELIX-mp3 and -aac decoder is included. There is also an OPUS decoder for Fullband, n VORBIS decoder and a FLAC decoder.
-Works with MAX98357A (3 Watt amplifier with DAC), connected three lines (DOUT, BLCK, LRC) to I2S.
-For stereo are two MAX98357A necessary. AudioI2S works with UDA1334A (Adafruit I2S Stereo Decoder Breakout Board), PCM5102A and CS4344.
-Other HW may work but not tested. Plays also icy-streams and GoogleTTS. Can be compiled with Arduino IDE. [WIKI](https://github.com/schreibfaul1/ESP32-audioI2S/wiki)
+This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information and has a sleep timer.
 
-```` c++
-#include "Arduino.h"
-#include "WiFi.h"
-#include "Audio.h"
-#include "SD.h"
-#include "FS.h"
+## Features
 
-// Digital I/O used
-#define SD_CS          5
-#define SPI_MOSI      23
-#define SPI_MISO      19
-#define SPI_SCK       18
-#define I2S_DOUT      25
-#define I2S_BCLK      27
-#define I2S_LRC       26
+- **Internet Radio**: Stream radio stations from predefined URLs.
+- **Audio Player**: Play audio files from an SD card (supports MP3, FLAC, AAC).
+- **OLED Display**: Displays current station, track, and weather information.
+- **Rotary Encoders**: For navigation and volume control.
+- **Wi-Fi Configuration**: Easily set up Wi-Fi using [WiFiManager](https://github.com/tzapu/WiFiManager).
+- **Real-Time Clock**: Synchronize time with an NTP server.
+- **Weather Updates**: Display current weather conditions on the OLED display.
+- **File Browser**: Browse and play files from SD card directories.
+- **Multiple Radio Station Banks**: Store up to 100 stations per bank with support for up to 16 banks.
+  
+## Hardware Requirements
 
-Audio audio;
+- **ESP32-S3** development board
+- **PCM5102A DAC Module**
+- **256x64 OLED Display with SSD1322 driver** (SPI-based)
+- **Rotary Encoders** with push buttons (x2)
+- **SD Card Reader** (SPI-based)
+- **Wi-Fi connection** for radio streaming and weather updates
 
-String ssid =     "*******";
-String password = "*******";
+## Pin Configuration
 
-void setup() {
-    pinMode(SD_CS, OUTPUT);      digitalWrite(SD_CS, HIGH);
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
-    Serial.begin(115200);
-    SD.begin(SD_CS);
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), password.c_str());
-    while (WiFi.status() != WL_CONNECTED) delay(1500);
-    audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-    audio.setVolume(21); // default 0...21
-//  or alternative
-//  audio.setVolumeSteps(64); // max 255
-//  audio.setVolume(63);    
-//
-//  *** radio streams ***
-    audio.connecttohost("http://stream.antennethueringen.de/live/aac-64/stream.antennethueringen.de/"); // aac
-//  audio.connecttohost("http://mcrscast.mcr.iol.pt/cidadefm");                                         // mp3
-//  audio.connecttohost("http://www.wdr.de/wdrlive/media/einslive.m3u");                                // m3u
-//  audio.connecttohost("https://stream.srg-ssr.ch/rsp/aacp_48.asx");                                   // asx
-//  audio.connecttohost("http://tuner.classical102.com/listen.pls");                                    // pls
-//  audio.connecttohost("http://stream.radioparadise.com/flac");                                        // flac
-//  audio.connecttohost("http://stream.sing-sing-bis.org:8000/singsingFlac");                           // flac (ogg)
-//  audio.connecttohost("http://s1.knixx.fm:5347/dein_webradio_vbr.opus");                              // opus (ogg)
-//  audio.connecttohost("http://stream2.dancewave.online:8080/dance.ogg");                              // vorbis (ogg)
-//  audio.connecttohost("http://26373.live.streamtheworld.com:3690/XHQQ_FMAAC/HLSTS/playlist.m3u8");    // HLS
-//  audio.connecttohost("http://eldoradolive02.akamaized.net/hls/live/2043453/eldorado/master.m3u8");   // HLS (ts)
-//  *** web files ***
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/Pink-Panther.wav");        // wav
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/Santiano-Wellerman.flac"); // flac
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/Olsen-Banden.mp3");        // mp3
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/Miss-Marple.m4a");         // m4a (aac)
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/Collide.ogg");             // vorbis
-//  audio.connecttohost("https://github.com/schreibfaul1/ESP32-audioI2S/raw/master/additional_info/Testfiles/sample.opus");             // opus
-//  *** local files ***
-//  audio.connecttoFS(SD, "/test.wav");     // SD
-//  audio.connecttoFS(SD_MMC, "/test.wav"); // SD_MMC
-//  audio.connecttoFS(SPIFFS, "/test.wav"); // SPIFFS
+### OLED Display (SPI)
+- **MISO**: Not used
+- **SCK**: Pin 38
+- **MOSI**: Pin 39
+- **DC**: Pin 40
+- **RESET**: Pin 41
+- **CS**: Pin 42
 
-//  audio.connecttospeech("Wenn die Hunde schlafen, kann der Wolf gut Schafe stehlen.", "de"); // Google TTS
-}
+### SD Card Reader (SPI)
+- **SCK**: Pin 45
+- **MISO**: Pin 21
+- **MOSI**: Pin 48
+- **CS**: Pin 47
 
-void loop()
-{
-    audio.loop();
-}
+### PCM5102A DAC (I2S)
+- **DIN**: Pin 13
+- **BCLK**: Pin 12
+- **LCK**: Pin 14
 
-// optional
-void audio_info(const char *info){
-    Serial.print("info        "); Serial.println(info);
-}
-void audio_id3data(const char *info){  //id3 metadata
-    Serial.print("id3data     ");Serial.println(info);
-}
-void audio_eof_mp3(const char *info){  //end of file
-    Serial.print("eof_mp3     ");Serial.println(info);
-}
-void audio_showstation(const char *info){
-    Serial.print("station     ");Serial.println(info);
-}
-void audio_showstreamtitle(const char *info){
-    Serial.print("streamtitle ");Serial.println(info);
-}
-void audio_bitrate(const char *info){
-    Serial.print("bitrate     ");Serial.println(info);
-}
-void audio_commercial(const char *info){  //duration in sec
-    Serial.print("commercial  ");Serial.println(info);
-}
-void audio_icyurl(const char *info){  //homepage
-    Serial.print("icyurl      ");Serial.println(info);
-}
-void audio_lasthost(const char *info){  //stream URL played
-    Serial.print("lasthost    ");Serial.println(info);
-}
-void audio_eof_speech(const char *info){
-    Serial.print("eof_speech  ");Serial.println(info);
-}
+### Rotary Encoders
+- **Right Encoder**: CLK: Pin 6, DT: Pin 5, SW: Pin 4
+- **Left Encoder**: CLK: Pin 11, DT: Pin 10, SW: Pin 1
 
-````
+## Software Dependencies
 
-<br>
+The project uses various libraries to enable functionality:
 
-|Codec       |ESP32  |ESP32 PSRAM  |ESP32-S3 PSRAM |                         | 
-|------------|-------|-------------|---------------|-------------------------|
-| mp3        | y     | y           | y             |                         |
-| aac        | n     | y           | y             |                         |
-| aacp       | n     | y (mono)    | y (+SBR, +PS) |                         |
-| wav        | y     | y           | y             |                         |
-| flac       | n     | y           | y             |blocksize max 8192 bytes |
-| vorbis     | n     | y           | y             | <=196Kbit/s             |
-| m4a        | n     | y           | y             |                         |
-| opus       | n     | y           | y             |celt only                |
+- **[Arduino](https://www.arduino.cc/en/software)**: Standard library for ESP32 development.
+- **[Audio](https://github.com/schreibfaul1/ESP32-audioI2S)**: For handling audio playback and streaming.
+- **[U8g2lib](https://github.com/olikraus/u8g2)**: For controlling the OLED display.
+- **[ezButton](https://github.com/ArduinoGetStarted/ezButton)**: For handling rotary encoder buttons.
+- **[WiFiManager](https://github.com/tzapu/WiFiManager)**: For Wi-Fi setup.
+- **[ArduinoJson](https://arduinojson.org/)**: For handling JSON data (e.g., weather API responses).
+- **[Time](https://www.arduino.cc/reference/en/libraries/time/)**: For NTP-based time synchronization.
 
-<br>
+## Usage
 
-Breadboard
-![Breadboard](https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/additional_info/Breadboard.jpg)
-Wiring
-![Wiring](https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/additional_info/ESP32_I2S_PCM5102A.JPG)
-Impulse diagram
-![Impulse diagram](https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/additional_info/Impulsdiagramm.jpg)
+1. Flash the code to your ESP32 device.
+2. Use **WiFiManager** to set up Wi-Fi connectivity.
+3. Stream internet radio from predefined stations or play audio files from an SD card.
+4. Navigate between menus using the rotary encoders and display.
+
+### Radio Station URLs
+The radio stations are defined in banks, with up to 100 stations per bank. You can modify the station list by changing the URLs in the code:
+
+- Bank 1: [Radio Bank 1](https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01)
+- Bank 2: [Radio Bank 2](https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02)
+- ... (up to 16 banks)
+
+## License
+
+This project is open-source and licensed under the [MIT License](https://opensource.org/licenses/MIT). Feel free to contribute and improve the code.
+
+## Acknowledgments
+
+- Special thanks to the authors of the libraries used in this project.
+- The project is inspired by the open-source IoT community.
+

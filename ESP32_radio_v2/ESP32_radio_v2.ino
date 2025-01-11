@@ -1989,6 +1989,68 @@ void handleJoystick()
 }
 
 
+// Funkcja przetwarza tekst, zamieniając polskie znaki diakrytyczne
+void processText(String &text)
+{
+  for (int i = 0; i < text.length(); i++)
+  {
+    switch (text[i])
+    {
+      case (char)0xC2:
+        switch (text[i+1])
+        {
+          case (char)0xB3: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
+          case (char)0x9C: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
+          case (char)0x8C: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
+          case (char)0xB9: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
+          case (char)0x9B: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
+          case (char)0xBF: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
+          case (char)0x9F: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC3:
+        switch (text[i+1])
+        {
+          case (char)0xB1: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
+          case (char)0xB3: text.setCharAt(i, 'o'); break; // Zamiana "ó" na "o"
+          case (char)0xBA: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
+          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC4:
+        switch (text[i+1])
+        {
+          case (char)0x85: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
+          case (char)0x99: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
+          case (char)0x87: text.setCharAt(i, 'c'); break; // Zamiana "ć" na "c"
+          case (char)0x84: text.setCharAt(i, 'A'); break; // Zamiana "Ą" na "A"
+          case (char)0x98: text.setCharAt(i, 'E'); break; // Zamiana "Ę" na "E"
+          case (char)0x86: text.setCharAt(i, 'C'); break; // Zamiana "Ć" na "C"
+        }
+        text.remove(i+1, 1);
+        break;
+      case (char)0xC5:
+        switch (text[i+1])
+        {
+          case (char)0x82: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
+          case (char)0x84: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
+          case (char)0x9B: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
+          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
+          case (char)0xBC: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
+          case (char)0x83: text.setCharAt(i, 'N'); break; // Zamiana "Ń" na "N"
+          case (char)0x9A: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
+          case (char)0x81: text.setCharAt(i, 'L'); break; // Zamiana "Ł" na "L"
+          case (char)0xB9: text.setCharAt(i, 'Z'); break; // Zamiana "Ź" na "Z"
+        }
+        text.remove(i+1, 1);
+        break;
+    }
+  }
+}
+
+
 void setup()
 {
   // Ustaw pin CS dla karty SD jako wyjście i ustaw go na wysoki stan
@@ -2082,67 +2144,6 @@ void setup()
     u8g2.setFont(u8g2_font_ncenB14_tr);
     u8g2.drawStr(0, 40, "WIFI NOT CONNECTED");
     u8g2.sendBuffer();
-  }
-}
-
-// Funkcja przetwarza tekst, zamieniając polskie znaki diakrytyczne
-void processText(String &text)
-{
-  for (int i = 0; i < text.length(); i++)
-  {
-    switch (text[i])
-    {
-      case (char)0xC2:
-        switch (text[i+1])
-        {
-          case (char)0xB3: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
-          case (char)0x9C: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
-          case (char)0x8C: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
-          case (char)0xB9: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
-          case (char)0x9B: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
-          case (char)0xBF: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
-          case (char)0x9F: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
-        }
-        text.remove(i+1, 1);
-        break;
-      case (char)0xC3:
-        switch (text[i+1])
-        {
-          case (char)0xB1: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
-          case (char)0xB3: text.setCharAt(i, 'o'); break; // Zamiana "ó" na "o"
-          case (char)0xBA: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
-          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
-        }
-        text.remove(i+1, 1);
-        break;
-      case (char)0xC4:
-        switch (text[i+1])
-        {
-          case (char)0x85: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
-          case (char)0x99: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
-          case (char)0x87: text.setCharAt(i, 'c'); break; // Zamiana "ć" na "c"
-          case (char)0x84: text.setCharAt(i, 'A'); break; // Zamiana "Ą" na "A"
-          case (char)0x98: text.setCharAt(i, 'E'); break; // Zamiana "Ę" na "E"
-          case (char)0x86: text.setCharAt(i, 'C'); break; // Zamiana "Ć" na "C"
-        }
-        text.remove(i+1, 1);
-        break;
-      case (char)0xC5:
-        switch (text[i+1])
-        {
-          case (char)0x82: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
-          case (char)0x84: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
-          case (char)0x9B: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
-          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
-          case (char)0xBC: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
-          case (char)0x83: text.setCharAt(i, 'N'); break; // Zamiana "Ń" na "N"
-          case (char)0x9A: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
-          case (char)0x81: text.setCharAt(i, 'L'); break; // Zamiana "Ł" na "L"
-          case (char)0xB9: text.setCharAt(i, 'Z'); break; // Zamiana "Ź" na "Z"
-        }
-        text.remove(i+1, 1);
-        break;
-    }
   }
 }
 

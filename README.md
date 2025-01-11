@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information and has a sleep timer.
+This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information.
 
 ## Features
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information.
+This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information and has a sleep timer.
 
 ## Features
 
@@ -20,7 +20,7 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 
 - **ESP32-S3** development board
 - **PCM5102A DAC Module**
-- **256x64 OLED Display** (SPI-based)
+- **256x64 OLED Display with SSD1322 driver** (SPI-based)
 - **Rotary Encoders** with push buttons (x2)
 - **SD Card Reader** (SPI-based)
 - **Wi-Fi connection** for radio streaming and weather updates
@@ -55,7 +55,7 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 The project uses various libraries to enable functionality:
 
 - **[Arduino](https://www.arduino.cc/en/software)**: Standard library for ESP32 development.
-- **[Audio](https://www.arduino.cc/reference/en/libraries/audio/)**: For handling audio playback and streaming.
+- **[Audio](https://github.com/schreibfaul1/ESP32-audioI2S)**: For handling audio playback and streaming.
 - **[U8g2lib](https://github.com/olikraus/u8g2)**: For controlling the OLED display.
 - **[ezButton](https://github.com/ArduinoGetStarted/ezButton)**: For handling rotary encoder buttons.
 - **[WiFiManager](https://github.com/tzapu/WiFiManager)**: For Wi-Fi setup.

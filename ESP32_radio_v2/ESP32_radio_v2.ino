@@ -1547,7 +1547,9 @@ void displayPlayer()
     Serial.println();
 
     u8g2.setCursor(0, 31);
-    u8g2.print("Tytul: ");
+    String text = "Tytuł: ";
+    processText(text);  // Podstawienie polskich znaków diakrytycznych
+    u8g2.print(text);
     processText(titleString);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(titleString);
 

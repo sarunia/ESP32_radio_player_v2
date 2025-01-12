@@ -173,7 +173,100 @@ bool joystickMovedLeft = false;
 bool joystickMovedRight = false;
 bool joystickPressed = false;
 
-
+const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") = 
+  "\340\1\3\2\3\4\1\3\4\6\14\0\375\10\376\11\377\1\225\3]\13m \7\346\361\363\237\0!\12"
+  "\346\361#i\357`\316\0\42\14\346\361\3I\226dI\316/\0#\21\346\361\303I\64HI\226dI"
+  "\64HIN\6$\22\346q\205CRK\302\61\311\222,I\206\60\247\0%\15\346\361cQK\32\246"
+  "I\324\316\2&\17\346\361#Z\324f\213\22-Zr\42\0'\11\346\361#i\235\237\0(\13\346\361"
+  "ia\332s\254\303\0)\12\346\361\310\325\36\63\235\2*\15\346\361S\243L\32&-\312\31\1+\13"
+  "\346\361\223\323l\320\322\234\31,\12\346\361\363)\15s\22\0-\11\346\361s\32t\236\0.\10\346\361"
+  "\363K\316\0/\15\346q\246a\32\246a\32\246\71\15\60\21\346\361\3S\226DJ\213\224dI\26\355"
+  "d\0\61\12\346\361#\241\332\343N\6\62\16\346\361\3S\226\226\246\64\35t*\0\63\16\346\361\3S"
+  "\226fr\232d\321N\6\64\14\346q\247\245\236\6\61\315\311\0\65\16\346q\17J\232\16qZ\31r"
+  "\62\0\66\20\346\361\3S\232\16Q\226dI\26\355d\0\67\13\346q\17J\226\206\325v\6\70\20\346"
+  "\361\3S\226d\321\224%Y\222E;\31\71\17\346\361\3S\226dI\26\15ii'\3:\11\346\361"
+  "\263\346L\71\3;\13\346\361\263\346\264\64\314I\0<\12\346\361cak\334N\5=\13\346\361\263\15"
+  ":\60\350\334\0>\12\346\361\3qk\330\316\2\77\14\346\361\3S\226\206\325\34\314\31@\21\346\361\3"
+  "S\226dI\262$K\262\304CN\5A\22\346\361\3S\226dI\226\14J\226dI\226S\1B\22"
+  "\346q\17Q\226d\311\20eI\226d\311\220\223\1C\14\346\361\3C\222\366<\344T\0D\22\346q"
+  "\17Q\226dI\226dI\226d\311\220\223\1E\16\346\361\3C\222\246C\224\226\207\234\12F\15\346\361"
+  "\3C\222\246C\224\266\63\1G\21\346\361\3C\222V\226,\311\222,\32r*\0H\22\346qgI"
+  "\226d\311\240dI\226dI\226S\1I\12\346\361\3c\332\343N\6J\12\346\361\3c\332\233\316\2"
+  "K\21\346qgI\226D\321\26\325\222,\311r*\0L\12\346q\247}\36r*\0M\20\346qg"
+  "\211eP\272%Y\222%YN\5N\20\346qg\211\224HI\77)\221\222\345T\0O\21\346\361\3"
+  "S\226dI\226dI\226d\321N\6P\17\346q\17Q\226dI\226\14QZg\2Q\22\346\361\3"
+  "S\226dI\226dI\226d\321\252\303\0R\22\346q\17Q\226dI\226\14Q\226dI\226S\1S"
+  "\16\346\361\3C\222\306sZ\31r\62\0T\11\346q\17Z\332w\6U\22\346qgI\226dI\226"
+  "dI\226d\321\220S\1V\20\346qgI\226dI\226dI\26m;\31W\21\346qgI\226d"
+  "I\226\264\14\212%\313\251\0X\21\346qgI\26%a%\312\222,\311r*\0Y\20\346qgI"
+  "\226dI\26\15ie\310\311\0Z\14\346q\17j\330\65\35t*\0[\13\346\361\14Q\332\257C\16"
+  "\3\134\15\346q\244q\32\247q\32\247\71\14]\12\346\361\14i\177\32r\30^\12\346\361#a\22e"
+  "\71\77_\11\346\361\363\353\240\303\0`\11\346\361\3q\235_\0a\16\346\361S\347hH\262$\213\206"
+  "\234\12b\20\346q\247\351\20eI\226dI\226\14\71\31c\14\346\361S\207$m\36r*\0d\21"
+  "\346\361ci\64$Y\222%Y\222ECN\5e\17\346\361S\207$K\262dP\342!\247\2f\14"
+  "\346\361#S\32\16Y\332\316\2g\21\346\361S\207$K\262$K\262hN\206\34\1h\20\346q\247"
+  "\351\20eI\226dI\226d\71\25i\13\346\361#\71\246v\325\311\0j\13\346\361C\71\230\366\246S"
+  "\0k\16\346q\247\245J&&YT\313\251\0l\12\346\361\3i\237u\62\0m\15\346\361\23\207("
+  "\351\337\222,\247\2n\20\346\361\23\207(K\262$K\262$\313\251\0o\16\346\361S\247,\311\222,"
+  "\311\242\235\14p\21\346\361\23\207(K\262$K\262d\210\322*\0q\20\346\361S\207$K\262$K"
+  "\262hH[\0r\14\346\361S\207$K\322v&\0s\15\346\361S\207$\236\323d\310\311\0t\13"
+  "\346\361\3i\70\246\315:\31u\20\346\361\23\263$K\262$K\262h\310\251\0v\16\346\361\23\263$"
+  "K\262$\213\222\60gw\17\346\361\23\263$KZ\6\305\222\345T\0x\16\346\361\23\263$\213\266)"
+  "K\262\234\12y\21\346\361\23\263$K\262$K\262hH+C\4z\14\346\361\23\7\65l\34t*"
+  "\0{\14\346\361iiM\224\323\262\16\3|\10\346q\245\375;\5}\14\346\361\310iY\324\322\232N"
+  "\1~\12\346\361s\213\222D\347\10\177\7\346\361\363\237\0\200\6\341\311\243\0\201\6\341\311\243\0\202\6"
+  "\341\311\243\0\203\6\341\311\243\0\204\6\341\311\243\0\205\6\341\311\243\0\206\6\341\311\243\0\207\6\341\311"
+  "\243\0\210\6\341\311\243\0\211\6\341\311\243\0\212\6\341\311\243\0\213\6\341\311\243\0\214\16\346\361eC"
+  "\222\306sZ\31r\62\0\215\6\341\311\243\0\216\6\341\311\243\0\217\14\346qe\203T\354\232\16:\25"
+  "\220\6\341\311\243\0\221\6\341\311\243\0\222\6\341\311\243\0\223\6\341\311\243\0\224\6\341\311\243\0\225\6"
+  "\341\311\243\0\226\6\341\311\243\0\227\16\346\361eC\222\306sZ\31r\62\0\230\6\341\311\243\0\231\6"
+  "\341\311\243\0\232\6\341\311\243\0\233\6\341\311\243\0\234\16\346\361\205\71\66$\361\234&CN\6\235\6"
+  "\341\311\243\0\236\6\341\311\243\0\237\15\346\361\205\71\64\250a\343\240S\1\240\7\346\361\363\237\0\241\23"
+  "\346\361\3S\226dI\226\14J\226dI\26\306\71\0\242\21\346\361\23\302!\251%Y\222%\341\220\345"
+  "\24\0\243\14\346q\247-\231\230\306CN\5\244\22\346\361\3S\226dI\226\14J\226dI\26\346\4"
+  "\245\22\346\361\3S\226dI\226\14J\226dI\26\346\4\246\16\346\361eC\222\306sZ\31r\62\0"
+  "\247\17\346\361#Z\224\245Z\324\233\232E\231\4\250\11\346\361\3I\316\237\1\251\21\346\361\3C\22J"
+  "\211\22)\221bL\206\234\12\252\15\346\361#r\66\325vd\310\31\1\253\17\346\361\223\243$J\242\266"
+  "(\213r\42\0\254\14\346qe\203T\354\232\16:\25\255\10\346\361s\333y\3\256\21\346\361\3C\22"
+  "*\226d\261$c\62\344T\0\257\14\346qe\203\32vM\7\235\12\260\12\346\361#Z\324\246\363\11"
+  "\261\20\346\361S\347hH\262$\213\206\64\314\21\0\262\14\346\361#Z\224\206\305!\347\6\263\13\346\361"
+  "\3i\252\251\315:\31\264\11\346\361Ca\235\337\0\265\14\346\361\23\243\376i\251\346 \0\266\16\346\361"
+  "\205\71\66$\361\234&CN\6\267\10\346\361s\314y\4\270\11\346\361\363\207\64\14\1\271\20\346\361S"
+  "\347hH\262$\213\206\64\314\21\0\272\15\346\361#Z\324\233\16\15\71#\0\273\17\346\361\23\243,\312"
+  "\242\226(\211r\62\0\274\15\346\361\205\71\64\250a\343\240S\1\275\17\346\361\204j-\211\302\26\245\24"
+  "\26\207\0\276\21\346\361hQ\30'\222\64\206ZR\33\302\64\1\277\15\346\361#\71\64\250a\343\240S"
+  "\1\300\21\346\361\304\341\224%Y\62(Y\222%YN\5\301\21\346\361\205\341\224%Y\62(Y\222%"
+  "YN\5\302\22\346q\205I\66eI\226\14J\226dI\226S\1\303\23\346\361DI\242MY\222%"
+  "\203\222%Y\222\345T\0\304\21\346\361\324\241)K\262dP\262$K\262\234\12\305\16\346\361eC\222"
+  "\306sZ\31r\62\0\306\14\346\361eC\222\366<\344T\0\307\15\346\361\3C\222\366<di\30\2"
+  "\310\17\346\361\304\341\220\244\351\20\245\361\220S\1\311\17\346\361\205\341\220\244\351\20\245\361\220S\1\312\20"
+  "\346\361\3C\222\246C\224\226\207\64\314\21\0\313\17\346\361\324\241!I\323!J\343!\247\2\314\13\346"
+  "\361\304\341\230v\334\311\0\315\13\346\361\205\341\230v\334\311\0\316\14\346q\205I\66\246\35w\62\0\317"
+  "\13\346\361\324\241\61\355\270\223\1\320\15\346\361\3[\324\262D}\332\311\0\321\20\346\361EIV\221\22"
+  ")\351'%\322\251\0\322\20\346\361\304\341\224%Y\222%Y\222E;\31\323\20\346\361\205\341\224%Y"
+  "\222%Y\222E;\31\324\21\346q\205I\66eI\226dI\226d\321N\6\325\22\346\361DI\242M"
+  "Y\222%Y\222%Y\264\223\1\326\21\346\361\324\241)K\262$K\262$\213v\62\0\327\14\346\361S"
+  "\243L\324\242\234\33\0\330\20\346qFS\226DJ_\244$\213\246\234\6\331\21\346\361\304Y%K\262"
+  "$K\262$\213\206\234\12\332\21\346\361\205Y%K\262$K\262$\213\206\234\12\333\23\346q\205I\224"
+  "%Y\222%Y\222%Y\64\344T\0\334\22\346\361\324\221,\311\222,\311\222,\311\242!\247\2\335\17"
+  "\346\361\205Y%K\262hH+CN\6\336\21\346\361\243\351\20eI\226dI\226\14QN\3\337\17"
+  "\346\361\3Z\324%\213j\211\224$:\31\340\20\346q\305\71\64GC\222%Y\64\344T\0\341\20\346"
+  "\361\205\71\66GC\222%Y\64\344T\0\342\20\346q\205I\16\315\321\220dI\26\15\71\25\343\21\346"
+  "\361DI\242Cs\64$Y\222ECN\5\344\20\346\361\3I\16\315\321\220dI\26\15\71\25\345\20"
+  "\346q\205I\30\316\321\220dI\26\15\71\25\346\15\346\361Ca\70$i\363\220S\1\347\15\346\361S"
+  "\207$m\36\262\64\14\1\350\20\346q\305\71\64$Y\222%\203\22\17\71\25\351\20\346\361\205\71\66$"
+  "Y\222%\203\22\17\71\25\352\20\346\361S\207$K\262dP\342!\254C\0\353\21\346\361\3I\16\15"
+  "I\226d\311\240\304CN\5\354\13\346q\305\71\244v\325\311\0\355\13\346\361\205\71\246v\325\311\0\356"
+  "\14\346q\205I\16\251]u\62\0\357\14\346\361\3I\16\251]u\62\0\360\21\346q$a%\234\262"
+  "$K\262$\213v\62\0\361\21\346\361\205\71\64DY\222%Y\222%YN\5\362\20\346q\305\71\64"
+  "eI\226dI\26\355d\0\363\20\346\361\205\71\66eI\226dI\26\355d\0\364\20\346q\205I\16"
+  "MY\222%Y\222E;\31\365\21\346\361DI\242CS\226dI\226d\321N\6\366\20\346\361\3I"
+  "\16MY\222%Y\222E;\31\367\13\346\361\223sh\320\241\234\31\370\17\346\361\223\242)RZ\244$"
+  "\213\246\234\6\371\21\346q\305\71\222%Y\222%Y\222ECN\5\372\21\346\361\205\71\224%Y\222%"
+  "Y\222ECN\5\373\22\346q\205I\216dI\226dI\226d\321\220S\1\374\22\346\361\3I\216d"
+  "I\226dI\226d\321\220S\1\375\23\346\361\205\71\224%Y\222%Y\222ECZ\31\42\0\376\22\346"
+  "q\247\351\20eI\226dI\226\14Q\232\203\0\377\23\346\361\3I\216dI\226dI\226d\321\220V"
+  "\206\10\0\0\0\4\377\377\0";
 
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
 bool isAudioFile(const char *filename)
@@ -395,7 +488,7 @@ void updateWeather()
 void switchWeatherData()
 {
   u8g2.drawStr(0, 62, "                                           "); // Wypełnienie spacjami jako czyszczenie linii
-  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.setFont(spleen6x12PL);
   if (timeDisplay == true)
   {
     if (cycle == 0)
@@ -1277,10 +1370,13 @@ void playFromSelectedFolder()
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
+        String text = "  ŁADOWANIE PLIKÓW Z WYBRANEGO FOLDERU... ";
+        processText(text);
+        Serial.println(text);
         u8g2.clearBuffer();
-        u8g2.setFont(u8g2_font_spleen6x12_mr);
+        u8g2.setFont(spleen6x12PL);
         u8g2.setCursor(0, 10);
-        u8g2.print("  LADOWANIE PLIKOW Z WYBRANEGO FOLDERU... ");
+        u8g2.print(text);
         u8g2.sendBuffer();
         break;
       }
@@ -1335,7 +1431,7 @@ void playFromSelectedFolder()
 void displayRadio()
 {
   u8g2.clearBuffer();	
-  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.setFont(spleen6x12PL);
   u8g2.drawStr(0, 10, stationName.c_str());
 
   // Parametry do obługi wyświetlania w 3 kolejnych wierszach z podzialem do pełnych wyrazów
@@ -1346,7 +1442,7 @@ void displayRadio()
   // Podziel tekst na wyrazy
   String word;
   int wordStart = 0;
-  processText(stationString);  // Zamiana polskich znaków na ASCII
+  processText(stationString);
 
   for (int i = 0; i <= stationString.length(); i++)
   {
@@ -1397,9 +1493,9 @@ void displayPlayer()
   {
     timeDisplay = true;
     u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
-    u8g2.print("     ODTWARZANIE PLIKU ");
+    u8g2.print("    ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
     u8g2.print(totalFilesInFolder);
@@ -1459,9 +1555,9 @@ void displayPlayer()
     int maxLineLength = 42;
     timeDisplay = true;
     u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
-    u8g2.print("     ODTWARZANIE PLIKU ");
+    u8g2.print("    ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
     u8g2.print(totalFilesInFolder);
@@ -1593,11 +1689,12 @@ void handleEncoder2Rotation()
 // Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
 void displayFolders()
 {
+  String text = "   ODTWARZACZ PLIKÓW - LISTA KATALOGÓW    ";
+  processText(text);
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.setFont(spleen6x12PL);
   u8g2.setCursor(0, 10);
-
-  u8g2.print("   ODTWARZACZ PLIKOW - LISTA KATALOGOW    ");
+  u8g2.print(text);
   u8g2.setCursor(0, 21);
   u8g2.print(currentDirectory);  // Wyświetl bieżący katalog
 
@@ -1646,7 +1743,7 @@ void displayFolders()
 void displayStations()
 {
   u8g2.clearBuffer();  // Wyczyść bufor przed rysowaniem, aby przygotować ekran do nowej 
-  u8g2.setFont(u8g2_font_spleen6x12_mr);
+  u8g2.setFont(spleen6x12PL);
   u8g2.setCursor(60, 10);  // Ustaw pozycję kursora (x=60, y=10) dla nagłówka
   u8g2.print("STACJE RADIOWE    ");  // Wyświetl nagłówek "STACJE RADIOWE"
   u8g2.print(String(station_nr) + " / " + String(stationsCount));  // Dodaj numer aktualnej stacji i licznik wszystkich stacji
@@ -1921,9 +2018,9 @@ void handleJoystick()
     {
       playPreviousFile = true;
       u8g2.clearBuffer();
-      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setFont(spleen6x12PL);
       u8g2.setCursor(0, 10);
-      u8g2.print("     LADOWANIE PLIKU, CZEKAJ... ");
+      u8g2.print("     ŁADOWANIE PLIKU, CZEKAJ... ");
       u8g2.sendBuffer();
     }
   }
@@ -1949,11 +2046,13 @@ void handleJoystick()
     }
     if (currentOption == PLAY_FILES)
     {
+      String text = "     ŁADOWANIE PLIKU, CZEKAJ... ";
+      processText(text);
       playNextFile = true;
       u8g2.clearBuffer();
-      u8g2.setFont(u8g2_font_spleen6x12_mr);
+      u8g2.setFont(spleen6x12PL);
       u8g2.setCursor(0, 10);
-      u8g2.print("     LADOWANIE PLIKU, CZEKAJ... ");
+      u8g2.print(text);
       u8g2.sendBuffer();
     }
   }
@@ -1999,57 +2098,57 @@ void processText(String &text)
       case (char)0xC2:
         switch (text[i+1])
         {
-          case (char)0xB3: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
-          case (char)0x9C: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
-          case (char)0x8C: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
-          case (char)0xB9: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
-          case (char)0x9B: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
-          case (char)0xBF: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
-          case (char)0x9F: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
+          case (char)0xB3: text.setCharAt(i, 0xB3); break; // Zamiana na "ł"
+          case (char)0x9C: text.setCharAt(i, 0x9C); break; // Zamiana na "ś"
+          case (char)0x8C: text.setCharAt(i, 0x8C); break; // Zamiana na "Ś"
+          case (char)0xB9: text.setCharAt(i, 0xB9); break; // Zamiana na "ą"
+          case (char)0x9B: text.setCharAt(i, 0xEA); break; // Zamiana na "ę"
+          case (char)0xBF: text.setCharAt(i, 0xBF); break; // Zamiana na "ż"
+          case (char)0x9F: text.setCharAt(i, 0x9F); break; // Zamiana na "ź"
         }
         text.remove(i+1, 1);
         break;
       case (char)0xC3:
         switch (text[i+1])
         {
-          case (char)0xB1: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
-          case (char)0xB3: text.setCharAt(i, 'o'); break; // Zamiana "ó" na "o"
-          case (char)0xBA: text.setCharAt(i, 'z'); break; // Zamiana "ź" na "z"
-          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
+          case (char)0xB1: text.setCharAt(i, 0xF1); break; // Zamiana na "ń"
+          case (char)0xB3: text.setCharAt(i, 0xF3); break; // Zamiana na "ó"
+          case (char)0xBA: text.setCharAt(i, 0x9F); break; // Zamiana na "ź"
+          case (char)0xBB: text.setCharAt(i, 0xAF); break; // Zamiana na "Ż"
+          case (char)0x93: text.setCharAt(i, 0xD3); break; // Zamiana na "Ó"
         }
         text.remove(i+1, 1);
         break;
       case (char)0xC4:
         switch (text[i+1])
         {
-          case (char)0x85: text.setCharAt(i, 'a'); break; // Zamiana "ą" na "a"
-          case (char)0x99: text.setCharAt(i, 'e'); break; // Zamiana "ę" na "e"
-          case (char)0x87: text.setCharAt(i, 'c'); break; // Zamiana "ć" na "c"
-          case (char)0x84: text.setCharAt(i, 'A'); break; // Zamiana "Ą" na "A"
-          case (char)0x98: text.setCharAt(i, 'E'); break; // Zamiana "Ę" na "E"
-          case (char)0x86: text.setCharAt(i, 'C'); break; // Zamiana "Ć" na "C"
+          case (char)0x85: text.setCharAt(i, 0xB9); break; // Zamiana na "ą"
+          case (char)0x99: text.setCharAt(i, 0xEA); break; // Zamiana na "ę"
+          case (char)0x87: text.setCharAt(i, 0xE6); break; // Zamiana na "ć"
+          case (char)0x84: text.setCharAt(i, 0xA5); break; // Zamiana na "Ą"
+          case (char)0x98: text.setCharAt(i, 0xCA); break; // Zamiana na "Ę"
+          case (char)0x86: text.setCharAt(i, 0xC6); break; // Zamiana na "Ć"
         }
         text.remove(i+1, 1);
         break;
       case (char)0xC5:
         switch (text[i+1])
         {
-          case (char)0x82: text.setCharAt(i, 'l'); break; // Zamiana "ł" na "l"
-          case (char)0x84: text.setCharAt(i, 'n'); break; // Zamiana "ń" na "n"
-          case (char)0x9B: text.setCharAt(i, 's'); break; // Zamiana "ś" na "s"
-          case (char)0xBB: text.setCharAt(i, 'Z'); break; // Zamiana "Ż" na "Z"
-          case (char)0xBC: text.setCharAt(i, 'z'); break; // Zamiana "ż" na "z"
-          case (char)0x83: text.setCharAt(i, 'N'); break; // Zamiana "Ń" na "N"
-          case (char)0x9A: text.setCharAt(i, 'S'); break; // Zamiana "Ś" na "S"
-          case (char)0x81: text.setCharAt(i, 'L'); break; // Zamiana "Ł" na "L"
-          case (char)0xB9: text.setCharAt(i, 'Z'); break; // Zamiana "Ź" na "Z"
+          case (char)0x82: text.setCharAt(i, 0xB3); break; // Zamiana na "ł"
+          case (char)0x84: text.setCharAt(i, 0xF1); break; // Zamiana na "ń"
+          case (char)0x9B: text.setCharAt(i, 0x9C); break; // Zamiana na "ś"
+          case (char)0xBB: text.setCharAt(i, 0xAF); break; // Zamiana na "Ż"
+          case (char)0xBC: text.setCharAt(i, 0xBF); break; // Zamiana na "ż"
+          case (char)0x83: text.setCharAt(i, 0xD1); break; // Zamiana na "Ń"
+          case (char)0x9A: text.setCharAt(i, 0x97); break; // Zamiana na "Ś"
+          case (char)0x81: text.setCharAt(i, 0xA3); break; // Zamiana na "Ł"
+          case (char)0xB9: text.setCharAt(i, 0xAC); break; // Zamiana na "Ź"
         }
         text.remove(i+1, 1);
         break;
     }
   }
 }
-
 
 void setup()
 {
@@ -2146,7 +2245,6 @@ void setup()
     u8g2.sendBuffer();
   }
 }
-
 
 void loop()
 {
@@ -2301,10 +2399,12 @@ void loop()
     folderIndex = 1;
     currentSelection = 0;
     firstVisibleLine = 1;
+    String text = "  ŁADOWANIE FOLDERÓW Z KARTY SD, CZEKAJ... ";
+    processText(text);
     u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
-    u8g2.print("  LADOWANIE FOLDEROW Z KARTY SD, CZEKAJ... ");
+    u8g2.print(text);
     u8g2.sendBuffer();
     listDirectories("/");
     audio.stopSong();
@@ -2341,7 +2441,8 @@ void loop()
     fetchStationsFromServer();
     changeStation();
     u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_spleen6x12_mr);
+    u8g2.setFont(spleen6x12PL);
     u8g2.sendBuffer();
   }
 }
+

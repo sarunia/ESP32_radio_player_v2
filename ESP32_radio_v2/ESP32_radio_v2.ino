@@ -503,8 +503,8 @@ void switchWeatherData()
     } 
     else if (cycle == 2)
     {
-      processText(humidityStr);
-      processText(pressureStr);
+      processText(humidityStr);  // Podstawienie polskich znaków diakrytycznych
+      processText(pressureStr);  // Podstawienie polskich znaków diakrytycznych
       u8g2.drawStr(0, 62, humidityStr.c_str());
       u8g2.drawStr(115, 62, pressureStr.c_str());
     }
@@ -897,6 +897,7 @@ void audio_info(const char *info)
   int metadata = String(info).indexOf("skip metadata");
   if (metadata != -1)
   {
+    id3tag = false;
     Serial.println("Brak ID3 - nazwa pliku: " + fileNameString);
     if (fileNameString.length() > 84)
     {
@@ -1373,7 +1374,7 @@ void playFromSelectedFolder()
         playNextFolder = true;
         id3tag = false;
         String text = "  ŁADOWANIE PLIKÓW Z WYBRANEGO FOLDERU... ";
-        processText(text);
+        processText(text);  // Podstawienie polskich znaków diakrytycznych
         Serial.println(text);
         u8g2.clearBuffer();
         u8g2.setFont(spleen6x12PL);
@@ -1444,7 +1445,7 @@ void displayRadio()
   // Podziel tekst na wyrazy
   String word;
   int wordStart = 0;
-  processText(stationString);
+  processText(stationString);  // Podstawienie polskich znaków diakrytycznych
 
   for (int i = 0; i <= stationString.length(); i++)
   {
@@ -1510,16 +1511,31 @@ void displayPlayer()
     {
       artistString = artistString.substring(0, 33); // Ogranicz długość tekstu do 33 znaków
     }
+
+    // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
+    Serial.println("Bajty RAW DATA artysty:");
+    for (int i = 0; i < artistString.length(); i++) {
+      Serial.print("0x");
+      if (artistString[i] < 0x10) {
+        Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
+      }
+      Serial.print(artistString[i], HEX); // Drukowanie znaku jako wartość hex
+      Serial.print(" "); // Dodanie spacji po każdym bajcie
+    }
+    Serial.println();
+
     u8g2.setCursor(0, 21);
     u8g2.print("Artysta: ");
-    processText(artistString);  // Zamiana polskich znaków na ASCII
+    processText(artistString);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(artistString);
 
     if (titleString.length() > 35)
     {
       titleString = titleString.substring(0, 35); // Ogranicz długość tekstu do 35 znaków
     }
-    // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu 
+
+    // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
+    Serial.println("Bajty RAW DATA tytułu:");
     for (int i = 0; i < titleString.length(); i++) {
       Serial.print("0x");
       if (titleString[i] < 0x10) {
@@ -1528,11 +1544,11 @@ void displayPlayer()
       Serial.print(titleString[i], HEX); // Drukowanie znaku jako wartość hex
       Serial.print(" "); // Dodanie spacji po każdym bajcie
     }
-    Serial.println(); // Nowa linia po zakończeniu drukowania bajtów
+    Serial.println();
 
     u8g2.setCursor(0, 31);
     u8g2.print("Tytul: ");
-    processText(titleString);  // Zamiana polskich znaków na ASCII
+    processText(titleString);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(titleString);
 
     if (folderNameString.startsWith("/"))
@@ -1543,7 +1559,7 @@ void displayPlayer()
     u8g2.setCursor(0, 41);
     u8g2.print("Folder: ");
     String folder = folderNameString;
-    processText(folder);  // Zamiana polskich znaków na ASCII
+    processText(folder);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(folder);
     u8g2.drawStr(0, 52, "                                           ");
     String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
@@ -1568,6 +1584,7 @@ void displayPlayer()
     u8g2.print("/");
     u8g2.print(directoryCount);
     u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
+    processText(fileNameString);  // Podstawienie polskich znaków diakrytycznych
 
     // Jeśli długość nazwy pliku przekracza 42 znaki na wiersz
     if (fileNameString.length() > maxLineLength)
@@ -1692,7 +1709,7 @@ void handleEncoder2Rotation()
 void displayFolders()
 {
   String text = "   ODTWARZACZ PLIKÓW - LISTA KATALOGÓW    ";
-  processText(text);
+  processText(text);  // Podstawienie polskich znaków diakrytycznych
   u8g2.clearBuffer();
   u8g2.setFont(spleen6x12PL);
   u8g2.setCursor(0, 10);
@@ -2049,7 +2066,7 @@ void handleJoystick()
     if (currentOption == PLAY_FILES)
     {
       String text = "     ŁADOWANIE PLIKU, CZEKAJ... ";
-      processText(text);
+      processText(text);  // Podstawienie polskich znaków diakrytycznych
       playNextFile = true;
       u8g2.clearBuffer();
       u8g2.setFont(spleen6x12PL);
@@ -2090,7 +2107,7 @@ void handleJoystick()
 }
 
 
-// Funkcja przetwarza tekst, zamieniając polskie znaki diakrytyczne
+// Funkcja przetwarza tekst, wstawiając polskie znaki diakrytyczne
 void processText(String &text)
 {
   for (int i = 0; i < text.length(); i++)
@@ -2402,7 +2419,7 @@ void loop()
     currentSelection = 0;
     firstVisibleLine = 1;
     String text = "  ŁADOWANIE FOLDERÓW Z KARTY SD, CZEKAJ... ";
-    processText(text);
+    processText(text);  // Podstawienie polskich znaków diakrytycznych
     u8g2.clearBuffer();
     u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);

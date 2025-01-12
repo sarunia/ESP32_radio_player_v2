@@ -461,12 +461,12 @@ void updateWeather()
   Serial.print("Wilgotność: ");
   Serial.print(humidity);
   Serial.println(" %");
-  humidityStr = "Wilgotnosc: " + String(humidity) + " %";
+  humidityStr = "Wilgotność: " + String(humidity) + " %";
   
   Serial.print("Ciśnienie: ");
   Serial.print(pressure);
   Serial.println(" hPa");
-  pressureStr = "Cisnienie: " + String(pressure, 2) + " hPa";
+  pressureStr = "Ciśnienie: " + String(pressure, 2) + " hPa";
   
   Serial.print("Opis pogody: ");
   Serial.println(weatherDescription);
@@ -503,6 +503,8 @@ void switchWeatherData()
     } 
     else if (cycle == 2)
     {
+      processText(humidityStr);
+      processText(pressureStr);
       u8g2.drawStr(0, 62, humidityStr.c_str());
       u8g2.drawStr(115, 62, pressureStr.c_str());
     }

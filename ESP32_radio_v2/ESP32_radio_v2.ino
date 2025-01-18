@@ -96,6 +96,10 @@ bool bitratePresent = false;      // Flaga określająca, czy na serial terminal
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
+bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
+bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
+bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
+bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -172,6 +176,126 @@ const int neutralPosition = 2925; // Neutralna pozycja
 bool joystickMovedLeft = false;
 bool joystickMovedRight = false;
 bool joystickPressed = false;
+
+/*===============    Definicja portu i deklaracje zmiennych do obsługi odbiornika IR    =============*/
+const int recv_pin = 15;  // Pin odbiornika IR
+
+volatile unsigned long pulse_start = 0;  // Czas rozpoczęcia impulsu
+volatile unsigned long pulse_end = 0;    // Czas zakończenia impulsu
+volatile bool pulse_ready = false;       // Flaga informująca, że impuls jest gotowy
+
+unsigned long ir_code = 0;  // Kod IR
+int bit_count = 0;          // Liczba bitów w odebranym kodzie
+
+// Próg dla impulsu "1" i "0"
+const int HIGH_THRESHOLD = 1600;  // Sygnał wysokiego poziomu
+const int LOW_THRESHOLD = 500;    // Sygnał niskiego poziomu
+
+// Czas trwania pauzy po odbiorze pełnego sygnału (w mikrosekundach)
+const int RESET_TIME = 50000;  // 50 ms
+
+// Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
+void pulseISR()
+{
+  if (digitalRead(recv_pin) == HIGH)
+  {
+    pulse_start = micros();  // Zapis począteku impulsu
+  }
+  else
+  {
+    pulse_end = micros();    // Zapis końca impulsu
+    pulse_ready = true;
+  }
+}
+
+void analyzePulseFromIR()
+{
+  static unsigned long last_pulse_time = 0;
+
+  // Sprawdzenie, czy impuls jest gotowy do analizy
+  if (pulse_ready)
+  {
+    pulse_ready = false;
+
+    // Obliczenie czasu trwania impulsu
+    unsigned long pulse_duration = pulse_end - pulse_start;
+
+    // Dekodowanie impulsu
+    if (pulse_duration > HIGH_THRESHOLD)
+    {
+      ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
+      bit_count++;
+    }
+    else if (pulse_duration > LOW_THRESHOLD)
+    {
+      ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
+      bit_count++;
+    }
+
+    last_pulse_time = micros();  // Aktualizacja czas ostatniego impulsu
+  }
+
+  // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
+  if (bit_count == 32)
+  {
+    Serial.print("Otrzymano kod IR: ");
+    Serial.println(ir_code, HEX);
+
+    // Rozbicie kodu na 4 bajty
+    uint8_t byte1 = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
+    uint8_t byte2 = (ir_code >> 16) & 0xFF;  // Drugi bajt
+    uint8_t byte3 = (ir_code >> 8) & 0xFF;   // Trzeci bajt
+    uint8_t byte4 = ir_code & 0xFF;          // Czwarty bajt
+
+    // Sprawdzenie, czy drugi bajt jest negacją pierwszego, a czwarty bajt jest negacją trzeciego
+    //if ((byte1 ^ byte2) == 0xFF && (byte3 ^ byte4) == 0xFF)
+    {
+      //Serial.println("Kod NEC jest poprawny.");
+
+      // Rozpoznawanie przycisków na podstawie kodu
+      if (ir_code == 0xC03FE41B)      // Przycisk w prawo
+      { 
+        Serial.println("Przycisk w prawo");
+        IRrightArrow = true;
+      } 
+      else if (ir_code == 0xC03FF807) // Przycisk w lewo
+      {  
+        Serial.println("Przycisk w lewo");
+        IRleftArrow = true;
+      }
+      else if (ir_code == 0xC03FC0BF) // Przycisk w górę
+      {  
+        Serial.println("Przycisk w górę");
+        IRupArrow = true;
+      }
+      else if (ir_code == 0xC03FE619) // Przycisk w dół
+      {  
+        Serial.println("Przycisk w dół");
+        IRdownArrow = true;
+      }
+      else
+      {
+        Serial.println("Inny przycisk");
+      }
+    }
+    /*else
+    {
+      Serial.println("Błąd: Kod NEC jest niepoprawny!");
+    }*/
+
+    // Reset licznika bitów i kod IR na nowo
+    bit_count = 0;
+    ir_code = 0;
+  }
+
+  // Reset odbioru, jeśli minął czas dłuższy niż 50 ms bez nowych impulsów
+  if ((micros() - last_pulse_time) > RESET_TIME && bit_count > 0)
+  {
+    bit_count = 0;
+    ir_code = 0;
+  }
+}
+
 
 const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") = 
   "\340\1\3\2\3\4\1\3\4\6\14\0\375\10\376\11\377\1\225\3]\13m \7\346\361\363\237\0!\12"
@@ -1284,7 +1408,7 @@ void playFromSelectedFolder()
     seconds = 0;
     isPlaying = true;
     fileFromBuffer = fileIndex;
-    folderFromBuffer = folderIndex;
+    folderFromBuffer = folderIndex + 1;
 
     entry.close();  // Zamykaj plik po odczytaniu
 
@@ -1619,7 +1743,7 @@ void backDisplayPlayer()
 {
   if (displayActive && (millis() - displayStartTime >= displayTimeout))
   {
-    folderIndex = folderFromBuffer;
+    folderFromBuffer = folderIndex + 1;
     displayPlayer();
     displayActive = false;
     timeDisplay = true;
@@ -2038,10 +2162,12 @@ void handleJoystick()
     if (currentOption == PLAY_FILES)
     {
       playPreviousFile = true;
+      String text = "     ŁADOWANIE PLIKU, CZEKAJ... ";
+      processText(text);  // Podstawienie polskich znaków diakrytycznych
       u8g2.clearBuffer();
       u8g2.setFont(spleen6x12PL);
       u8g2.setCursor(0, 10);
-      u8g2.print("     ŁADOWANIE PLIKU, CZEKAJ... ");
+      u8g2.print(text);
       u8g2.sendBuffer();
     }
   }
@@ -2067,9 +2193,9 @@ void handleJoystick()
     }
     if (currentOption == PLAY_FILES)
     {
+      playNextFile = true;
       String text = "     ŁADOWANIE PLIKU, CZEKAJ... ";
       processText(text);  // Podstawienie polskich znaków diakrytycznych
-      playNextFile = true;
       u8g2.clearBuffer();
       u8g2.setFont(spleen6x12PL);
       u8g2.setCursor(0, 10);
@@ -2171,6 +2297,23 @@ void processText(String &text)
   }
 }
 
+// Funkcja do ustawienia głośności na żądaną wartość
+void volumeSet()
+{
+  timeDisplay = false;  // Wyłączanie wyświetlania czasu
+  displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
+  displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
+  Serial.print("Wartość głośności: ");
+  Serial.println(volumeValue);
+  audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
+  String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB14_tr);
+  u8g2.drawStr(65, 25, "VOLUME SET");
+  u8g2.drawStr(115, 50, volumeValueStr.c_str());
+  u8g2.sendBuffer();
+}
+
 void setup()
 {
   // Ustaw pin CS dla karty SD jako wyjście i ustaw go na wysoki stan
@@ -2190,6 +2333,11 @@ void setup()
   pinMode(xPin, INPUT);
   pinMode(yPin, INPUT);
   pinMode(swPin, INPUT_PULLUP);
+
+  pinMode(recv_pin, INPUT); // Ustawienie pinu odbiornika IR jako wejście
+
+  // Przerwanie na zmianę stanu pinu (odczyt impulsu)
+  attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
 
 
   // Odczytaj początkowy stan pinu CLK enkodera
@@ -2273,8 +2421,9 @@ void loop()
   button1.loop();          // Wykonuje pętlę dla obiektu button1 (sprawdza stan przycisku z enkodera 1)
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
-  handleJoystick();
-
+  handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
+  analyzePulseFromIR();    // Analizuje dane z odbiornika IR i rozpoznaje komendy z pilota
+  
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki
   {
@@ -2319,16 +2468,7 @@ void loop()
           volumeValue = 18;
         }
       }
-      Serial.print("Wartość głośności: ");
-      Serial.println(volumeValue);
-      audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
-
-      String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
-      u8g2.clearBuffer();
-      u8g2.setFont(u8g2_font_ncenB14_tr);
-      u8g2.drawStr(65, 25, "VOLUME SET");
-      u8g2.drawStr(115, 50, volumeValueStr.c_str());
-      u8g2.sendBuffer();
+      volumeSet();
     }
   }
   prev_CLK_state1 = CLK_state1;
@@ -2417,7 +2557,7 @@ void loop()
       Serial.println("Błąd inicjalizacji karty SD!");
       return;
     }
-    folderIndex = 1;
+    folderIndex = 0;
     currentSelection = 0;
     firstVisibleLine = 1;
     String text = "  ŁADOWANIE FOLDERÓW Z KARTY SD, CZEKAJ... ";
@@ -2465,5 +2605,55 @@ void loop()
     u8g2.setFont(spleen6x12PL);
     u8g2.sendBuffer();
   }
+
+  if (IRrightArrow == true)  // Prawy przycisk kierunkowy w pilocie
+  {
+    IRrightArrow = false;
+    station_nr++;
+    if (station_nr > stationsCount)
+    {
+      station_nr = stationsCount;
+    }
+    Serial.print("Numer stacji do przodu: ");
+    Serial.println(station_nr);
+    changeStation();
+  }
+
+  if (IRleftArrow == true)  // Lewy przycisk kierunkowy w pilocie
+  {
+    IRleftArrow = false;
+    station_nr--;
+    if (station_nr < 1)
+    {
+      station_nr = 1;
+    }
+    Serial.print("Numer stacji do tyłu: ");
+    Serial.println(station_nr);
+    changeStation();
+  }
+
+  if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
+  {
+    IRupArrow = false;
+    volumeValue++;
+    if (volumeValue > 18)
+    {
+      volumeValue = 18;
+    }
+    volumeSet();
+    
+  }
+
+  if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
+  {
+    IRdownArrow = false;
+    volumeValue--;
+    if (volumeValue < 3)
+    {
+      volumeValue = 3;
+    }
+    volumeSet();
+  }
+
 }
 

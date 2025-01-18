@@ -187,19 +187,18 @@ volatile bool pulse_ready = false;       // Flaga informująca, że impuls jest 
 unsigned long ir_code = 0;  // Kod IR
 int bit_count = 0;          // Liczba bitów w odebranym kodzie
 
-// Próg dla impulsu "1" i "0"
-const int HIGH_THRESHOLD = 1600;  // Sygnał wysokiego poziomu
-const int LOW_THRESHOLD = 500;    // Sygnał niskiego poziomu
-
-// Czas trwania pauzy po odbiorze pełnego sygnału (w mikrosekundach)
-const int RESET_TIME = 50000;  // 50 ms
+// Próg dla sygnałów czasowych
+const int LEAD_HIGH = 9000;  // 9 ms sygnał wysoki (początkowy)
+const int LEAD_LOW = 4500;   // 4,5 ms sygnał niski (początkowy)
+const int HIGH_THRESHOLD = 1600;  // Sygnał "1"
+const int LOW_THRESHOLD = 560;    // Sygnał "0"
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
 void pulseISR()
 {
   if (digitalRead(recv_pin) == HIGH)
   {
-    pulse_start = micros();  // Zapis począteku impulsu
+    pulse_start = micros();  // Zapis początku impulsu
   }
   else
   {
@@ -210,8 +209,9 @@ void pulseISR()
 
 void analyzePulseFromIR()
 {
+  static bool data_start_detected = false;  // Flaga dla sygnału wstępnego
   static unsigned long last_pulse_time = 0;
-
+  
   // Sprawdzenie, czy impuls jest gotowy do analizy
   if (pulse_ready)
   {
@@ -220,81 +220,97 @@ void analyzePulseFromIR()
     // Obliczenie czasu trwania impulsu
     unsigned long pulse_duration = pulse_end - pulse_start;
 
-    // Dekodowanie impulsu
-    if (pulse_duration > HIGH_THRESHOLD)
+    if (!data_start_detected)
     {
-      ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
-      bit_count++;
-    }
-    else if (pulse_duration > LOW_THRESHOLD)
-    {
-      ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
-      bit_count++;
-    }
-
-    last_pulse_time = micros();  // Aktualizacja czas ostatniego impulsu
-  }
-
-  // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
-  if (bit_count == 32)
-  {
-    Serial.print("Otrzymano kod IR: ");
-    Serial.println(ir_code, HEX);
-
-    // Rozbicie kodu na 4 bajty
-    uint8_t byte1 = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
-    uint8_t byte2 = (ir_code >> 16) & 0xFF;  // Drugi bajt
-    uint8_t byte3 = (ir_code >> 8) & 0xFF;   // Trzeci bajt
-    uint8_t byte4 = ir_code & 0xFF;          // Czwarty bajt
-
-    // Sprawdzenie, czy drugi bajt jest negacją pierwszego, a czwarty bajt jest negacją trzeciego
-    //if ((byte1 ^ byte2) == 0xFF && (byte3 ^ byte4) == 0xFF)
-    {
-      //Serial.println("Kod NEC jest poprawny.");
-
-      // Rozpoznawanie przycisków na podstawie kodu
-      if (ir_code == 0xC03FE41B)      // Przycisk w prawo
-      { 
-        Serial.println("Przycisk w prawo");
-        IRrightArrow = true;
-      } 
-      else if (ir_code == 0xC03FF807) // Przycisk w lewo
-      {  
-        Serial.println("Przycisk w lewo");
-        IRleftArrow = true;
-      }
-      else if (ir_code == 0xC03FC0BF) // Przycisk w górę
-      {  
-        Serial.println("Przycisk w górę");
-        IRupArrow = true;
-      }
-      else if (ir_code == 0xC03FE619) // Przycisk w dół
-      {  
-        Serial.println("Przycisk w dół");
-        IRdownArrow = true;
-      }
-      else
+      // Oczekiwanie na sygnał wstępny (9 ms niski + 4,5 ms wysoki)
+      if (pulse_duration > LEAD_HIGH)
       {
-        Serial.println("Inny przycisk");
+        // Początek sygnału: 9 ms niski
+        // Serial.println("Otrzymano początek sygnału (9 ms niski).");
+      }
+      else if (pulse_duration > LEAD_LOW && pulse_duration <= LEAD_HIGH)
+      {
+        // Początek sygnału: 4,5 ms wysoki
+        // Serial.println("Otrzymano początek sygnału (4,5 ms wysoki).");
+        data_start_detected = true;  // Ustawienie flagi po wykryciu sygnału wstępnego
+        bit_count = 0;               // Reset bit_count przed odebraniem danych
+        ir_code = 0;                 // Reset kodu IR przed odebraniem danych
       }
     }
-    /*else
+    else
     {
-      Serial.println("Błąd: Kod NEC jest niepoprawny!");
-    }*/
+      // Sygnały dla bajtów (adresu ADDR, IADDR, komendy CMD, ICMD) zaczynają się po wstępnym sygnale
+      if (pulse_duration > HIGH_THRESHOLD)
+      {
+        ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
+        bit_count++;
+      }
+      else if (pulse_duration > LOW_THRESHOLD)
+      {
+        ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
+        bit_count++;
+      }
 
-    // Reset licznika bitów i kod IR na nowo
-    bit_count = 0;
-    ir_code = 0;
-  }
+      // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
+      if (bit_count == 32)
+      {
+        Serial.print("Otrzymano kod IR: ");
+        Serial.println(ir_code, HEX);
 
-  // Reset odbioru, jeśli minął czas dłuższy niż 50 ms bez nowych impulsów
-  if ((micros() - last_pulse_time) > RESET_TIME && bit_count > 0)
-  {
-    bit_count = 0;
-    ir_code = 0;
+        // Rozbicie kodu na 4 bajty
+        uint8_t ADDR = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
+        uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
+        uint8_t CMD = (ir_code >> 8) & 0xFF;    // Trzeci bajt (komenda)
+        uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
+
+        // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
+        if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
+        {
+          Serial.println("Kod NEC jest poprawny.");
+          Serial.print("Adres: "); Serial.println(ADDR, HEX);
+          Serial.print("Komenda: "); Serial.println(CMD, HEX);
+
+          // Rozpoznawanie przycisków na podstawie kodu
+          if (ir_code == 0xFF906F)      // Przycisk w prawo
+          { 
+            Serial.println("Przycisk w prawo");
+            IRrightArrow = true;
+          } 
+          else if (ir_code == 0xFFE01F) // Przycisk w lewo
+          {  
+            Serial.println("Przycisk w lewo");
+            IRleftArrow = true;
+          }
+          else if (ir_code == 0xFF02FD) // Przycisk w górę
+          {  
+            Serial.println("Przycisk w górę");
+            IRupArrow = true;
+          }
+          else if (ir_code == 0xFF9867) // Przycisk w dół
+          {  
+            Serial.println("Przycisk w dół");
+            IRdownArrow = true;
+          }
+          else
+          {
+            Serial.println("Inny przycisk");
+          }
+        }
+        else
+        {
+          Serial.println("Błąd: Kod NEC jest niepoprawny!");
+        }
+
+        // Resetowanie flagi i zmiennych po pełnym kodzie
+        data_start_detected = false;
+        bit_count = 0;
+        ir_code = 0;
+      }
+    }
   }
 }
+
+
 
 
 const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") = 

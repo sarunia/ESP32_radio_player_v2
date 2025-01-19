@@ -106,6 +106,8 @@ unsigned long debounceDelay = 300;        // Czas trwania debouncingu w miliseku
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
+static bool data_start_detected = false;  // Flaga dla sygnału wstępnego
+static unsigned long last_pulse_time = 0;
 
 String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
@@ -192,8 +194,8 @@ int bit_count = 0;          // Liczba bitów w odebranym kodzie
 // Próg dla sygnałów czasowych
 const int LEAD_HIGH = 9000;  // 9 ms sygnał wysoki (początkowy)
 const int LEAD_LOW = 4500;   // 4,5 ms sygnał niski (początkowy)
-const int HIGH_THRESHOLD = 1600;  // Sygnał "1"
-const int LOW_THRESHOLD = 560;    // Sygnał "0"
+const int HIGH_THRESHOLD = 1640;  // Sygnał "1"
+const int LOW_THRESHOLD = 550;    // Sygnał "0"
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
 void pulseISR()
@@ -211,9 +213,6 @@ void pulseISR()
 
 void analyzePulseFromIR()
 {
-  static bool data_start_detected = false;  // Flaga dla sygnału wstępnego
-  static unsigned long last_pulse_time = 0;
-  
   // Sprawdzenie, czy impuls jest gotowy do analizy
   if (pulse_ready)
   {

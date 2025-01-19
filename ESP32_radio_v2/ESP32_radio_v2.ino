@@ -96,10 +96,12 @@ bool bitratePresent = false;      // Flaga określająca, czy na serial terminal
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
-bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
-bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
-bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
-bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
+bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo "do przodu"
+bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo "do tyłu"
+bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę "+"
+bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół "-"
+bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MENU"
+bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK" / "PLAY"
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -266,30 +268,32 @@ void analyzePulseFromIR()
         // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
         if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
         {
-          Serial.println("Kod NEC jest poprawny.");
-          Serial.print("Adres: "); Serial.println(ADDR, HEX);
-          Serial.print("Komenda: "); Serial.println(CMD, HEX);
+          Serial.println("Kod NEC jest poprawny. Adres: " + String(ADDR, HEX) + " Komenda: " + String(CMD, HEX));
 
           // Rozpoznawanie przycisków na podstawie kodu
           if (ir_code == 0xFF906F)      // Przycisk w prawo
           { 
-            Serial.println("Przycisk w prawo");
             IRrightArrow = true;
           } 
           else if (ir_code == 0xFFE01F) // Przycisk w lewo
           {  
-            Serial.println("Przycisk w lewo");
             IRleftArrow = true;
           }
           else if (ir_code == 0xFF02FD) // Przycisk w górę
           {  
-            Serial.println("Przycisk w górę");
             IRupArrow = true;
           }
           else if (ir_code == 0xFF9867) // Przycisk w dół
           {  
-            Serial.println("Przycisk w dół");
             IRdownArrow = true;
+          }
+          else if (ir_code == 0xFFE21D) // Przycisk MENU
+          {  
+            IRmenuButton = true;
+          }
+          else if (ir_code == 0xFFA857) // Przycisk OK 
+          {  
+            IRokButton = true;
           }
           else
           {
@@ -1435,6 +1439,7 @@ void playFromSelectedFolder()
       button1.loop();
       button2.loop();
       handleJoystick();
+      analyzePulseFromIR();
 
       // Jeśli skończył się plik, przejdź do następnego
       if (fileEnd)
@@ -1445,9 +1450,10 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (playNextFile == true)
+      if ((playNextFile == true) || (IRrightArrow == true))
       {
         counter = 0;
+        IRrightArrow = false;
         playNextFile = false;
         isPlaying = false;
         audio.stopSong();
@@ -1461,9 +1467,10 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (playPreviousFile == true)
+      if ((playPreviousFile == true) || (IRleftArrow == true))
       {
         counter = 0;
+        IRleftArrow = false;
         playPreviousFile = false;
         isPlaying = false;
         audio.stopSong();
@@ -2568,6 +2575,8 @@ void loop()
   
   if ((currentOption == PLAY_FILES) && button1.isPressed() && (menuEnable == true))
   {
+    IRmenuButton = false;
+    menuEnable = false;
     if (!SD.begin(SD_CS))
     {
       Serial.println("Błąd inicjalizacji karty SD!");
@@ -2592,6 +2601,7 @@ void loop()
 
   if ((currentOption == INTERNET_RADIO) && button1.isPressed() && (menuEnable == true))
   {
+    IRmenuButton = false;
     menuEnable = false;
     volumeValue = 12;
     audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
@@ -2628,7 +2638,7 @@ void loop()
     station_nr++;
     if (station_nr > stationsCount)
     {
-      station_nr = stationsCount;
+      station_nr = 1;
     }
     Serial.print("Numer stacji do przodu: ");
     Serial.println(station_nr);
@@ -2641,7 +2651,7 @@ void loop()
     station_nr--;
     if (station_nr < 1)
     {
-      station_nr = 1;
+      station_nr = stationsCount;
     }
     Serial.print("Numer stacji do tyłu: ");
     Serial.println(station_nr);
@@ -2657,7 +2667,6 @@ void loop()
       volumeValue = 18;
     }
     volumeSet();
-    
   }
 
   if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
@@ -2669,6 +2678,17 @@ void loop()
       volumeValue = 3;
     }
     volumeSet();
+  }
+
+  if (IRmenuButton == true)  // Przycisk MENU w pilocie
+  {
+    IRmenuButton = false;
+    timeDisplay = false;
+    menuEnable = true;
+    displayActive = true;
+    displayStartTime = millis();
+    currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Cykl pomiędzy 0 a 1
+    displayMenu();
   }
 
 }

@@ -80,6 +80,7 @@ int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę pl
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 4;          // Maksymalna liczba widocznych linii na ekranie OLED
+
 bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty
 bool encoderButton2 = false;      // Flaga określająca, czy przycisk enkodera 2 został wciśnięty
 bool fileEnd = false;             // Flaga sygnalizująca koniec odtwarzania pliku audio
@@ -102,12 +103,12 @@ bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterow
 bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół "-"
 bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MENU"
 bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK" / "PLAY"
+
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
-static bool data_start_detected = false;  // Flaga dla sygnału wstępnego
-static unsigned long last_pulse_time = 0;
+
 
 String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
@@ -161,6 +162,8 @@ enum MenuOption
 };
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 
+
+
 /*===============    Definicja pinów i deklaracje zmiennych do obsługi joysticka    =============*/
 const int xPin = 16;  // Oś X (ADC)
 const int yPin = 17;  // Oś Y (ADC)
@@ -181,141 +184,144 @@ bool joystickMovedLeft = false;
 bool joystickMovedRight = false;
 bool joystickPressed = false;
 
+
+
 /*===============    Definicja portu i deklaracje zmiennych do obsługi odbiornika IR    =============*/
-const int recv_pin = 15;  // Pin odbiornika IR
+int recv_pin = 15;                  // Pin odbiornika IR
 
-volatile unsigned long pulse_start = 0;  // Czas rozpoczęcia impulsu
-volatile unsigned long pulse_end = 0;    // Czas zakończenia impulsu
-volatile bool pulse_ready = false;       // Flaga informująca, że impuls jest gotowy
+const int LEAD_HIGH = 9000;         // 9 ms sygnał wysoki (początkowy)
+const int LEAD_LOW = 4500;          // 4,5 ms sygnał niski (początkowy)
+const int TOLERANCE = 120;          // Tolerancja (w mikrosekundach)
+const int HIGH_THRESHOLD = 1690;    // Sygnał "1"
+const int LOW_THRESHOLD = 560;      // Sygnał "0"
 
-unsigned long ir_code = 0;  // Kod IR
-int bit_count = 0;          // Liczba bitów w odebranym kodzie
+volatile bool pulse_ready = false;  // Flaga sygnału gotowości
+unsigned long pulse_start = 0;      // Czas początkowy impulsu
+unsigned long pulse_end = 0;        // Czas końcowy impulsu
+unsigned long pulse_duration = 0;   // Czas trwania impulsu
 
-// Próg dla sygnałów czasowych
-const int LEAD_HIGH = 9000;  // 9 ms sygnał wysoki (początkowy)
-const int LEAD_LOW = 4500;   // 4,5 ms sygnał niski (początkowy)
-const int HIGH_THRESHOLD = 1640;  // Sygnał "1"
-const int LOW_THRESHOLD = 550;    // Sygnał "0"
+bool data_start_detected = false;   // Flaga wykrycia początku sygnału
+unsigned long ir_code = 0;          // Zmienna do przechowywania kodu IR
+int bit_count = 0;                  // Licznik bitów w odebranym kodzie
+
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
 void pulseISR()
 {
   if (digitalRead(recv_pin) == HIGH)
   {
-    pulse_start = micros();  // Zapis początku impulsu
+    pulse_start = micros();  // Zapisz czas początku impulsu (wysoki stan)
   }
   else
   {
-    pulse_end = micros();    // Zapis końca impulsu
-    pulse_ready = true;
+    pulse_end = micros();    // Zapisz czas końca impulsu (niski stan)
+    pulse_ready = true;      // Ustaw flagę gotowości do analizy
   }
 }
 
+// Funkcja analizująca odebrany impuls IR
 void analyzePulseFromIR()
 {
-  // Sprawdzenie, czy impuls jest gotowy do analizy
-  if (pulse_ready)
+  pulse_duration = pulse_end - pulse_start;  // Oblicz czas trwania impulsu
+
+  if (!data_start_detected)
   {
-    pulse_ready = false;
-
-    // Obliczenie czasu trwania impulsu
-    unsigned long pulse_duration = pulse_end - pulse_start;
-
-    if (!data_start_detected)
+    // Oczekiwanie na sygnał wstępny (9 ms niski + 4,5 ms wysoki)
+    if (pulse_duration > (LEAD_HIGH - TOLERANCE) && pulse_duration < (LEAD_HIGH + TOLERANCE))
     {
-      // Oczekiwanie na sygnał wstępny (9 ms niski + 4,5 ms wysoki)
-      if (pulse_duration > LEAD_HIGH)
-      {
-        // Początek sygnału: 9 ms niski
-        // Serial.println("Otrzymano początek sygnału (9 ms niski).");
-      }
-      else if (pulse_duration > LEAD_LOW && pulse_duration <= LEAD_HIGH)
-      {
-        // Początek sygnału: 4,5 ms wysoki
-        // Serial.println("Otrzymano początek sygnału (4,5 ms wysoki).");
-        data_start_detected = true;  // Ustawienie flagi po wykryciu sygnału wstępnego
-        bit_count = 0;               // Reset bit_count przed odebraniem danych
-        ir_code = 0;                 // Reset kodu IR przed odebraniem danych
-      }
+      // Początek sygnału: 9 ms wysoki, w tolerancji
+      // Serial.println("Otrzymano początek sygnału (9 ms niski).");
     }
-    else
+    else if (pulse_duration > (LEAD_LOW - TOLERANCE) && pulse_duration < (LEAD_LOW + TOLERANCE))
     {
-      // Sygnały dla bajtów (adresu ADDR, IADDR, komendy CMD, ICMD) zaczynają się po wstępnym sygnale
-      if (pulse_duration > HIGH_THRESHOLD)
+      // Początek sygnału: 4,5 ms niski, w tolerancji
+      // Serial.println("Otrzymano początek sygnału (4,5 ms wysoki).");
+      data_start_detected = true;  // Ustawienie flagi po wykryciu sygnału wstępnego
+      bit_count = 0;               // Reset bit_count przed odebraniem danych
+      ir_code = 0;                 // Reset kodu IR przed odebraniem danych
+    }
+  }
+  else
+  {
+    // Sygnały dla bajtów (adresu ADDR, IADDR, komendy CMD, ICMD) zaczynają się po wstępnym sygnale
+    if (pulse_duration > (HIGH_THRESHOLD - TOLERANCE) && pulse_duration < (HIGH_THRESHOLD + TOLERANCE))
+    {
+      ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
+      bit_count++;
+    }
+    else if (pulse_duration > (LOW_THRESHOLD - TOLERANCE) && pulse_duration < (LOW_THRESHOLD + TOLERANCE))
+    {
+      ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
+      bit_count++;
+    }
+
+    // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
+    if (bit_count == 32)
+    {
+      Serial.print("Kod IR: ");
+      Serial.println(ir_code, HEX);
+
+      // Rozbicie kodu na 4 bajty
+      uint8_t ADDR = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
+      uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
+      uint8_t CMD = (ir_code >> 8) & 0xFF;    // Trzeci bajt (komenda)
+      uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
+
+      // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
+      if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
       {
-        ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
-        bit_count++;
-      }
-      else if (pulse_duration > LOW_THRESHOLD)
-      {
-        ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
-        bit_count++;
-      }
+        Serial.println("Kod NEC jest poprawny. Adres: " + String(ADDR, HEX) + " Komenda: " + String(CMD, HEX));
 
-      // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
-      if (bit_count == 32)
-      {
-        Serial.print("Otrzymano kod IR: ");
-        Serial.println(ir_code, HEX);
-
-        // Rozbicie kodu na 4 bajty
-        uint8_t ADDR = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
-        uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
-        uint8_t CMD = (ir_code >> 8) & 0xFF;    // Trzeci bajt (komenda)
-        uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
-
-        // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
-        if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
-        {
-          Serial.println("Kod NEC jest poprawny. Adres: " + String(ADDR, HEX) + " Komenda: " + String(CMD, HEX));
-
-          // Rozpoznawanie przycisków na podstawie kodu
-          if (ir_code == 0xFF906F)      // Przycisk w prawo
-          { 
-            IRrightArrow = true;
-          } 
-          else if (ir_code == 0xFFE01F) // Przycisk w lewo
-          {  
-            IRleftArrow = true;
-          }
-          else if (ir_code == 0xFF02FD) // Przycisk w górę
-          {  
-            IRupArrow = true;
-          }
-          else if (ir_code == 0xFF9867) // Przycisk w dół
-          {  
-            IRdownArrow = true;
-          }
-          else if (ir_code == 0xFFE21D) // Przycisk MENU
-          {  
-            IRmenuButton = true;
-          }
-          else if (ir_code == 0xFFA857) // Przycisk OK 
-          {  
-            IRokButton = true;
-          }
-          else
-          {
-            Serial.println("Inny przycisk");
-          }
+        // Rozpoznawanie przycisków na podstawie kodu
+        if ((ir_code == 0xFF906F) ||  (ir_code == 0xFF649B))       // Przycisk w prawo na 2 różnych pilotach
+        { 
+          //Serial.println("Przycisk w prawo");
+          IRrightArrow = true;
+        } 
+        else if ((ir_code == 0xFFE01F) ||  (ir_code == 0xFFE41B))  // Przycisk w lewo na 2 różnych pilotach
+        {  
+          //Serial.println("Przycisk w lewo");
+          IRleftArrow = true;
+        }
+        else if ((ir_code == 0xFF02FD) ||  (ir_code == 0xFF14EB))  // Przycisk w górę na 1 pilocie lub przycisk VOL+ na drugim pilocie
+        {  
+          //Serial.println("Przycisk w górę");
+          IRupArrow = true;
+        }
+        else if ((ir_code == 0xFF9867) ||  (ir_code == 0xFF24DB))  // Przycisk w dół na 1 pilocie lub przycisk VOL- na drugim pilocie
+        {  
+          //Serial.println("Przycisk w dół");
+          IRdownArrow = true;
+        }
+        else if ((ir_code == 0xFFE21D) ||  (ir_code == 0xFFC43B))  // Przycisk MENU na 1 pilocie lub przycisk HOME na drugim pilocie
+        {  
+          //Serial.println("Przycisk MENU");
+          IRmenuButton = true;
+        }
+        else if ((ir_code == 0xFFA857) ||  (ir_code == 0xFFA45B))  // Przycisk środkowy PLAY na 1 pilocie lub przycisk OK na drugim pilocie
+        {  
+          //Serial.println("Przycisk OK");
+          IRokButton = true;
         }
         else
         {
-          Serial.println("Błąd: Kod NEC jest niepoprawny!");
+          Serial.println("Inny przycisk");
         }
-
-        // Resetowanie flagi i zmiennych po pełnym kodzie
-        data_start_detected = false;
-        bit_count = 0;
-        ir_code = 0;
       }
+      else
+      {
+        Serial.println("Błąd: Kod NEC jest niepoprawny!");
+      }
+
+      // Resetowanie flagi i zmiennych po pełnym kodzie
+      data_start_detected = false;
+      bit_count = 0;
+      ir_code = 0;
     }
   }
 }
 
-
-
-
+// Tablica z dodanymi polskimi znakami diakrytycznymi
 const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") = 
   "\340\1\3\2\3\4\1\3\4\6\14\0\375\10\376\11\377\1\225\3]\13m \7\346\361\363\237\0!\12"
   "\346\361#i\357`\316\0\42\14\346\361\3I\226dI\316/\0#\21\346\361\303I\64HI\226dI"
@@ -2444,7 +2450,12 @@ void loop()
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
   handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
-  analyzePulseFromIR();    // Analizuje dane z odbiornika IR i rozpoznaje komendy z pilota
+
+  if (pulse_ready)
+  {
+    pulse_ready = false;
+    analyzePulseFromIR();  // Przetwarzanie odebranego sygnału IR
+  }
   
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki

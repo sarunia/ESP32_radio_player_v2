@@ -97,12 +97,14 @@ bool bitratePresent = false;      // Flaga określająca, czy na serial terminal
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
-bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo "do przodu"
-bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo "do tyłu"
-bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę "+"
-bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół "-"
+bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
+bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
+bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
+bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
 bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MENU"
-bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK" / "PLAY"
+bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK"
+bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL+
+bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
 
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -164,7 +166,7 @@ MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (dom
 
 
 
-/*===============    Definicja pinów i deklaracje zmiennych do obsługi joysticka    =============*/
+/*===============    Definicja portów i deklaracje zmiennych do obsługi joysticka    =============*/
 const int xPin = 16;  // Oś X (ADC)
 const int yPin = 17;  // Oś Y (ADC)
 const int swPin = 18; // Przycisk SW
@@ -203,6 +205,28 @@ unsigned long pulse_duration = 0;   // Czas trwania impulsu
 bool data_start_detected = false;   // Flaga wykrycia początku sygnału
 unsigned long ir_code = 0;          // Zmienna do przechowywania kodu IR
 int bit_count = 0;                  // Licznik bitów w odebranym kodzie
+
+// Przypisanie przycisków i adresu pilota w standardzie NEC 
+#define rcCmdVolumeUp     0xFF14EB   // Przycisk VOL+
+#define rcCmdVolumeDown   0xFF24DB   // Przycisk VOL-
+#define rcCmdArrowRight   0xFF649B   // Przycisk w prawo - następna stacja / następny plik
+#define rcCmdArrowLeft    0xFFE41B   // Przycisk w lewo - poprzednia stacja / poprzedni plik
+#define rcCmdArrowUp      0xFF0CF3   // Przycisk w górę - lista stacji / lista folderów - krok do góry
+#define rcCmdArrowDown    0xFF44BB   // Przycisk w dół - lista stacji / lista folderów - krok w dół
+#define rcCmdOk           0xFFA45B   // Przycisk OK - zatwierdzenie stacji / folderu
+#define rcCmdSrc          0xFF04FB   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
+#define rcCmdMenu         0xFFC43B   // Przycisk HOME - uruchomienie menu systemowego 
+#define rcCmdMute         0xFF946B   // Przycisk MUTE - wyciszenie
+#define rcCmdKey0         0xFF48B7   // Przycisk "0"
+#define rcCmdKey1         0xFFA857   // Przycisk "1"
+#define rcCmdKey2         0xFF28D7   // Przycisk "2"
+#define rcCmdKey3         0xFF10EF   // Przycisk "3"
+#define rcCmdKey4         0xFF8877   // Przycisk "4"
+#define rcCmdKey5         0xFF08F7   // Przycisk "5"
+#define rcCmdKey6         0xFF906F   // Przycisk "6"
+#define rcCmdKey7         0xFFE01F   // Przycisk "7"
+#define rcCmdKey8         0xFF609F   // Przycisk "8"
+#define rcCmdKey9         0xFFA05F   // Przycisk "9"
 
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
@@ -273,35 +297,37 @@ void analyzePulseFromIR()
         Serial.println("Kod NEC jest poprawny. Adres: " + String(ADDR, HEX) + " Komenda: " + String(CMD, HEX));
 
         // Rozpoznawanie przycisków na podstawie kodu
-        if ((ir_code == 0xFF906F) ||  (ir_code == 0xFF649B))       // Przycisk w prawo na 2 różnych pilotach
+        if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
         { 
-          //Serial.println("Przycisk w prawo");
           IRrightArrow = true;
         } 
-        else if ((ir_code == 0xFFE01F) ||  (ir_code == 0xFFE41B))  // Przycisk w lewo na 2 różnych pilotach
+        else if (ir_code == rcCmdArrowLeft)    // Przycisk w lewo
         {  
-          //Serial.println("Przycisk w lewo");
           IRleftArrow = true;
         }
-        else if ((ir_code == 0xFF02FD) ||  (ir_code == 0xFF14EB))  // Przycisk w górę na 1 pilocie lub przycisk VOL+ na drugim pilocie
+        else if (ir_code == rcCmdArrowUp)      // Przycisk w górę
         {  
-          //Serial.println("Przycisk w górę");
           IRupArrow = true;
         }
-        else if ((ir_code == 0xFF9867) ||  (ir_code == 0xFF24DB))  // Przycisk w dół na 1 pilocie lub przycisk VOL- na drugim pilocie
+        else if (ir_code == rcCmdArrowDown)    // Przycisk w dół
         {  
-          //Serial.println("Przycisk w dół");
           IRdownArrow = true;
         }
-        else if ((ir_code == 0xFFE21D) ||  (ir_code == 0xFFC43B))  // Przycisk MENU na 1 pilocie lub przycisk HOME na drugim pilocie
+        else if (ir_code == rcCmdMenu)         // Przycisk HOME
         {  
-          //Serial.println("Przycisk MENU");
           IRmenuButton = true;
         }
-        else if ((ir_code == 0xFFA857) ||  (ir_code == 0xFFA45B))  // Przycisk środkowy PLAY na 1 pilocie lub przycisk OK na drugim pilocie
+        else if (ir_code == rcCmdOk)           // Przycisk OK
         {  
-          //Serial.println("Przycisk OK");
           IRokButton = true;
+        }
+        else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
+        {  
+          IRvolumeUp = true;
+        }
+        else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
+        {  
+          IRvolumeDown = true;
         }
         else
         {
@@ -2513,7 +2539,7 @@ void loop()
     displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
     displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
 
-    if ((currentOption == INTERNET_RADIO) &&  (bankChange == false))  // Przewijanie listy stacji radiowych
+    if ((currentOption == INTERNET_RADIO) && (bankChange == false))  // Przewijanie listy stacji radiowych
     {
       station_nr = currentSelection + 1;
       if (digitalRead(DT_PIN2) == HIGH)  // Obracanie w lewo
@@ -2585,7 +2611,6 @@ void loop()
   
   if ((currentOption == PLAY_FILES) && button1.isPressed() && (menuEnable == true))
   {
-    IRmenuButton = false;
     menuEnable = false;
     if (!SD.begin(SD_CS))
     {
@@ -2611,7 +2636,6 @@ void loop()
 
   if ((currentOption == INTERNET_RADIO) && button1.isPressed() && (menuEnable == true))
   {
-    IRmenuButton = false;
     menuEnable = false;
     volumeValue = 12;
     audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
@@ -2668,9 +2692,9 @@ void loop()
     changeStation();
   }
 
-  if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
+  if (IRvolumeUp == true)  // Przycisk VOL+ w pilocie
   {
-    IRupArrow = false;
+    IRvolumeUp = false;
     volumeValue++;
     if (volumeValue > 18)
     {
@@ -2679,9 +2703,9 @@ void loop()
     volumeSet();
   }
 
-  if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
+  if (IRvolumeDown == true)  // Przycisk VOL- w pilocie
   {
-    IRdownArrow = false;
+    IRvolumeDown = false;
     volumeValue--;
     if (volumeValue < 3)
     {
@@ -2690,16 +2714,58 @@ void loop()
     volumeSet();
   }
 
-  if (IRmenuButton == true)  // Przycisk MENU w pilocie
+  if (IRmenuButton == true)  // Przycisk HOME w pilocie
   {
     IRmenuButton = false;
     timeDisplay = false;
     menuEnable = true;
     displayActive = true;
     displayStartTime = millis();
-    currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Cykl pomiędzy 0 a 1
+    currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Przełączanie między opcjami do wyboru
     displayMenu();
   }
 
+  if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
+  {
+    IRdownArrow = false;
+    timeDisplay = false;
+    displayActive = true;
+    displayStartTime = millis();
+    station_nr = currentSelection + 1;
+    station_nr++;
+    if (station_nr > stationsCount) 
+    {
+      station_nr = stationsCount;
+    }
+    Serial.print("Numer stacji do do przodu: ");
+    Serial.println(station_nr);
+    scrollDown(); 
+    displayStations();
+  }
+
+  if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
+  {
+    IRupArrow = false;
+    timeDisplay = false;
+    displayActive = true;
+    displayStartTime = millis();
+    station_nr = currentSelection + 1;
+    station_nr--;
+    if (station_nr < 1) 
+    {
+      station_nr = 1;
+    }
+    Serial.print("Numer stacji do tyłu: ");
+    Serial.println(station_nr);
+    scrollUp(); 
+    displayStations();
+  }
+
+  if (IRokButton == true)  // Przycisk OK w pilocie
+  {
+    IRokButton = false;
+    changeStation();
+  }
+  
 }
 

@@ -64,7 +64,7 @@ int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie 
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
 int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrócenia na ekran po bezczynności
 int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
-int bankFromBuffer = 0;           // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności
+int previous_bank_nr = 0;         // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności
 int CLK_state1;                   // Aktualny stan CLK enkodera prawego
 int prev_CLK_state1;              // Poprzedni stan CLK enkodera prawego    
 int CLK_state2;                   // Aktualny stan CLK enkodera lewego
@@ -97,6 +97,8 @@ bool bitratePresent = false;      // Flaga określająca, czy na serial terminal
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
+
+// Definicje flag do obsługi z pilota zdalnego sterowania z protokołu NEC 38kHz
 bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
 bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
 bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
@@ -105,6 +107,8 @@ bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterow
 bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK"
 bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL+
 bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
+bool IRbankUp = false;            // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk FAV+
+bool IRbankDown = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk FAV-
 
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -193,7 +197,7 @@ int recv_pin = 15;                  // Pin odbiornika IR
 
 const int LEAD_HIGH = 9000;         // 9 ms sygnał wysoki (początkowy)
 const int LEAD_LOW = 4500;          // 4,5 ms sygnał niski (początkowy)
-const int TOLERANCE = 120;          // Tolerancja (w mikrosekundach)
+const int TOLERANCE = 100;          // Tolerancja (w mikrosekundach)
 const int HIGH_THRESHOLD = 1690;    // Sygnał "1"
 const int LOW_THRESHOLD = 560;      // Sygnał "0"
 
@@ -227,6 +231,8 @@ int bit_count = 0;                  // Licznik bitów w odebranym kodzie
 #define rcCmdKey7         0xFFE01F   // Przycisk "7"
 #define rcCmdKey8         0xFF609F   // Przycisk "8"
 #define rcCmdKey9         0xFFA05F   // Przycisk "9"
+#define rcCmdBankUp       0xFF18E7   // Przycisk FAV+
+#define rcCmdBankDown     0xFF9867   // Przycisk FAV-
 
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
@@ -328,6 +334,14 @@ void analyzePulseFromIR()
         else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
         {  
           IRvolumeDown = true;
+        }
+        else if (ir_code == rcCmdBankUp)     // Przycisk FAV+
+        {  
+          IRbankUp = true;
+        }
+        else if (ir_code == rcCmdBankDown)   // Przycisk FAV-
+        {  
+          IRbankDown = true;
         }
         else
         {
@@ -536,6 +550,7 @@ void handleButtons()
       // Jeśli przycisk jest wciśnięty przez co najmniej 3 sekundy i akcja jeszcze nie była wykonana
       if (millis() - buttonPressTime2 >= 3000 && !action2Taken)
       {
+        previous_bank_nr = bank_nr;
         timeDisplay = false;
         bankChange = true;           // Ustawienie listy banków do przewijania i wyboru
 
@@ -840,7 +855,7 @@ void changeStation()
     // Połącz z daną stacją
     audio.connecttohost(stationUrl.c_str());
     stationFromBuffer = station_nr;
-    bankFromBuffer = bank_nr;
+    previous_bank_nr = bank_nr;
     saveStationOnSD();
   } 
   else 
@@ -2368,6 +2383,21 @@ void volumeSet()
   u8g2.sendBuffer();
 }
 
+// Funkcja wyświetlająca numer banku na pełnym ekranie
+void displayBank()
+{
+  String bankNrStr = String(bank_nr);  // Zamiana liczby banku na ciąg znaków
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB18_tr);
+  u8g2.drawStr(40, 40, "NR  BANKU ");
+
+  // Przekazujemy bankNrStr jako ciąg znaków do wyświetlacza
+  u8g2.drawStr(210, 40, bankNrStr.c_str());  // Wyświetlenie numeru banku
+  u8g2.sendBuffer();
+}
+  
+
 void setup()
 {
   // Ustaw pin CS dla karty SD jako wyjście i ustaw go na wysoki stan
@@ -2585,15 +2615,7 @@ void loop()
           bank_nr = 1;
         }
       }
-      String bankNrStr = String(bank_nr);  // Zamiana liczby banku na ciąg znaków
-
-      u8g2.clearBuffer();
-      u8g2.setFont(u8g2_font_ncenB18_tr);
-      u8g2.drawStr(40, 40, "NR  BANKU ");
-
-      // Przekazujemy bankNrStr jako ciąg znaków do wyświetlacza
-      u8g2.drawStr(210, 40, bankNrStr.c_str());  // Wyświetlenie numeru banku
-      u8g2.sendBuffer();
+      displayBank();
     }
   }
   prev_CLK_state2 = CLK_state2;  // Zapisanie aktualnego stanu CLK jako poprzedni stan
@@ -2605,6 +2627,7 @@ void loop()
     timeDisplay = true;
     listedStations = false;
     menuEnable = false;
+    bankChange = false;
     currentOption = INTERNET_RADIO;
     displayRadio();
   }
@@ -2647,7 +2670,7 @@ void loop()
     changeStation();
   }
 
-  if ((bankChange == true) && button2.isPressed())
+  if ((bankChange == true) && button2.isPressed()) 
   {
     bankChange = false;
     u8g2.clearBuffer();
@@ -2764,7 +2787,45 @@ void loop()
   if (IRokButton == true)  // Przycisk OK w pilocie
   {
     IRokButton = false;
+    if (bankChange == true)
+    {
+      bankChange = false;
+      currentSelection = 0;
+      firstVisibleLine = 0;
+      station_nr = 1;
+      fetchStationsFromServer();
+    }
     changeStation();
+  }
+
+  if (IRbankUp == true)  // Przycisk FAV+ w pilocie
+  {
+    IRbankUp = false;
+    bankChange = true;
+    timeDisplay = false;
+    displayActive = true;
+    displayStartTime = millis();
+    bank_nr++;
+    if (bank_nr > 16)
+    {
+      bank_nr = 1;
+    }
+    displayBank(); 
+  }
+
+  if (IRbankDown == true)  // Przycisk FAV- w pilocie
+  {
+    IRbankDown = false;
+    bankChange = true;
+    timeDisplay = false;
+    displayActive = true;
+    displayStartTime = millis();
+    bank_nr--;
+    if (bank_nr < 1)
+    {
+      bank_nr = 16;
+    }
+    displayBank();
   }
   
 }

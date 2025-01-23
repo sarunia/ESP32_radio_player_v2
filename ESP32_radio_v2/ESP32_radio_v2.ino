@@ -1250,6 +1250,7 @@ void audio_id3data(const char *info)
   // Znajdź pozycję w tekście
   int titleIndex1 = String(info).indexOf("Title: ");
   int titleIndex2 = String(info).indexOf("TITLE=");
+  int titleIndex3 = String(info).indexOf("Title=");
   
   if (titleIndex1 != -1)
   {
@@ -1262,6 +1263,13 @@ void audio_id3data(const char *info)
   {
     // Przytnij tekst od pozycji "TITLE=" do końca linii
     titleString = String(info).substring(titleIndex2 + 6, String(info).indexOf('\n', titleIndex2));
+    Serial.println("Znalazłem tytuł: " + titleString);
+    id3tag = true;
+  }
+  if (titleIndex3 != -1)
+  {
+    // Przytnij tekst od pozycji "TITLE=" do końca linii
+    titleString = String(info).substring(titleIndex3 + 6, String(info).indexOf('\n', titleIndex3));
     Serial.println("Znalazłem tytuł: " + titleString);
     id3tag = true;
   }

@@ -193,173 +193,279 @@ bool joystickPressed = false;
 
 
 /*===============    Definicja portu i deklaracje zmiennych do obsługi odbiornika IR    =============*/
-int recv_pin = 15;                  // Pin odbiornika IR
+int recv_pin = 15;                          // Pin odbiornika IR
+int bit_count = 0;                          // Licznik bitów w odebranym kodzie
+
+volatile bool pulse_ready = false;          // Flaga sygnału gotowości
+volatile bool pulse_ready9ms = false;       // Flaga sygnału gotowości
+volatile bool pulse_ready_low = false;      // Flaga sygnału gotowości
+bool data_start_detected = false;           // Flaga dla sygnału wstępnego
+
+unsigned long pulse_start = 0;              // Czas początkowy impulsu
+unsigned long pulse_end = 0;                // Czas końcowy impulsu
+unsigned long pulse_duration = 0;           // Czas trwania impulsu
+unsigned long pulse_duration_9ms = 0;       // Tylko do analizy - Czas trwania impulsu
+unsigned long pulse_duration_4_5ms = 0;     // Tylko do analizy - Czas trwania impulsu
+unsigned long pulse_duration_690us = 0;     // Tylko do analizy - Czas trwania impulsu
+unsigned long pulse_duration_1690us = 0;    // Tylko do analizy - Czas trwania impulsu
+unsigned long pulse_start_low = 0;          // Czas początkowy impulsu
+unsigned long pulse_end_low = 0;            // Czas końcowy impulsu
+unsigned long pulse_duration_low = 0;       // Czas trwania impulsu
+unsigned long runTime1 = 0;                 // Czas T1 służący do obliczenia czasu trwania impulsu sygnału IR
+unsigned long runTime2 = 0;                 // Czas T2 służący do obliczenia czasu trwania impulsu sygnału IR
+unsigned long ir_code = 0;                  // Zmienna do przechowywania kodu IR
 
 const int LEAD_HIGH = 9000;         // 9 ms sygnał wysoki (początkowy)
-const int LEAD_LOW = 4500;          // 4,5 ms sygnał niski (początkowy)
-const int TOLERANCE = 100;          // Tolerancja (w mikrosekundach)
+const int LEAD_LOW = 4600;          // 4,5 ms sygnał niski (początkowy)
+const int TOLERANCE = 160;          // Tolerancja (w mikrosekundach)
 const int HIGH_THRESHOLD = 1690;    // Sygnał "1"
-const int LOW_THRESHOLD = 560;      // Sygnał "0"
+const int LOW_THRESHOLD = 600;      // Sygnał "0"
 
-volatile bool pulse_ready = false;  // Flaga sygnału gotowości
-unsigned long pulse_start = 0;      // Czas początkowy impulsu
-unsigned long pulse_end = 0;        // Czas końcowy impulsu
-unsigned long pulse_duration = 0;   // Czas trwania impulsu
 
-bool data_start_detected = false;   // Flaga wykrycia początku sygnału
-unsigned long ir_code = 0;          // Zmienna do przechowywania kodu IR
-int bit_count = 0;                  // Licznik bitów w odebranym kodzie
+// Przypisanie przycisków i adresu z komendą pilota w standardzie NEC 
+#define rcCmdVolumeUp     0x0028   // Przycisk VOL+
+#define rcCmdVolumeDown   0x0024   // Przycisk VOL-
+#define rcCmdArrowRight   0x0026   // Przycisk w prawo - następna stacja / następny plik
+#define rcCmdArrowLeft    0x0027   // Przycisk w lewo - poprzednia stacja / poprzedni plik
+#define rcCmdArrowUp      0x0030   // Przycisk w górę - lista stacji / lista folderów - krok do góry
+#define rcCmdArrowDown    0x0022   // Przycisk w dół - lista stacji / lista folderów - krok w dół
+#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie stacji / folderu
+#define rcCmdMode         0x0020   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
+#define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie menu systemowego 
+#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie
+#define rcCmdKey0         0x0012   // Przycisk "0"
+#define rcCmdKey1         0x0015   // Przycisk "1"
+#define rcCmdKey2         0x0014   // Przycisk "2"
+#define rcCmdKey3         0x0008   // Przycisk "3"
+#define rcCmdKey4         0x0011   // Przycisk "4"
+#define rcCmdKey5         0x0010   // Przycisk "5"
+#define rcCmdKey6         0x0009   // Przycisk "6"
+#define rcCmdKey7         0x0007   // Przycisk "7"
+#define rcCmdKey8         0x0006   // Przycisk "8"
+#define rcCmdKey9         0x0005   // Przycisk "9"
+#define rcCmdBankUp       0x0018   // Przycisk FAV+
+#define rcCmdBankDown     0x0019   // Przycisk FAV-
 
-// Przypisanie przycisków i adresu pilota w standardzie NEC 
-#define rcCmdVolumeUp     0xFF14EB   // Przycisk VOL+
-#define rcCmdVolumeDown   0xFF24DB   // Przycisk VOL-
-#define rcCmdArrowRight   0xFF649B   // Przycisk w prawo - następna stacja / następny plik
-#define rcCmdArrowLeft    0xFFE41B   // Przycisk w lewo - poprzednia stacja / poprzedni plik
-#define rcCmdArrowUp      0xFF0CF3   // Przycisk w górę - lista stacji / lista folderów - krok do góry
-#define rcCmdArrowDown    0xFF44BB   // Przycisk w dół - lista stacji / lista folderów - krok w dół
-#define rcCmdOk           0xFFA45B   // Przycisk OK - zatwierdzenie stacji / folderu
-#define rcCmdSrc          0xFF04FB   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
-#define rcCmdMenu         0xFFC43B   // Przycisk HOME - uruchomienie menu systemowego 
-#define rcCmdMute         0xFF946B   // Przycisk MUTE - wyciszenie
-#define rcCmdKey0         0xFF48B7   // Przycisk "0"
-#define rcCmdKey1         0xFFA857   // Przycisk "1"
-#define rcCmdKey2         0xFF28D7   // Przycisk "2"
-#define rcCmdKey3         0xFF10EF   // Przycisk "3"
-#define rcCmdKey4         0xFF8877   // Przycisk "4"
-#define rcCmdKey5         0xFF08F7   // Przycisk "5"
-#define rcCmdKey6         0xFF906F   // Przycisk "6"
-#define rcCmdKey7         0xFFE01F   // Przycisk "7"
-#define rcCmdKey8         0xFF609F   // Przycisk "8"
-#define rcCmdKey9         0xFFA05F   // Przycisk "9"
-#define rcCmdBankUp       0xFF18E7   // Przycisk FAV+
-#define rcCmdBankDown     0xFF9867   // Przycisk FAV-
+
+
+
 
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
-void pulseISR()
+void IRAM_ATTR pulseISR()
 {
+  runTime1 = esp_timer_get_time();
   if (digitalRead(recv_pin) == HIGH)
   {
-    pulse_start = micros();  // Zapisz czas początku impulsu (wysoki stan)
+    pulse_start = micros();  // Zapis początku impulsu
   }
   else
   {
-    pulse_end = micros();    // Zapisz czas końca impulsu (niski stan)
-    pulse_ready = true;      // Ustaw flagę gotowości do analizy
+    pulse_end = micros();    // Zapis końca impulsu
+    pulse_ready = true;
   }
-}
 
-// Funkcja analizująca odebrany impuls IR
-void analyzePulseFromIR()
-{
-  pulse_duration = pulse_end - pulse_start;  // Oblicz czas trwania impulsu
-
-  if (!data_start_detected)
+  if (digitalRead(recv_pin) == LOW)
   {
-    // Oczekiwanie na sygnał wstępny (9 ms niski + 4,5 ms wysoki)
-    if (pulse_duration > (LEAD_HIGH - TOLERANCE) && pulse_duration < (LEAD_HIGH + TOLERANCE))
-    {
-      // Początek sygnału: 9 ms wysoki, w tolerancji
-      // Serial.println("Otrzymano początek sygnału (9 ms niski).");
-    }
-    else if (pulse_duration > (LEAD_LOW - TOLERANCE) && pulse_duration < (LEAD_LOW + TOLERANCE))
-    {
-      // Początek sygnału: 4,5 ms niski, w tolerancji
-      // Serial.println("Otrzymano początek sygnału (4,5 ms wysoki).");
-      data_start_detected = true;  // Ustawienie flagi po wykryciu sygnału wstępnego
-      bit_count = 0;               // Reset bit_count przed odebraniem danych
-      ir_code = 0;                 // Reset kodu IR przed odebraniem danych
-    }
+    pulse_start_low = micros();  // Zapis początku impulsu
   }
   else
   {
-    // Sygnały dla bajtów (adresu ADDR, IADDR, komendy CMD, ICMD) zaczynają się po wstępnym sygnale
-    if (pulse_duration > (HIGH_THRESHOLD - TOLERANCE) && pulse_duration < (HIGH_THRESHOLD + TOLERANCE))
+    pulse_end_low = micros();    // Zapis końca impulsu
+    pulse_ready_low = true;
+  }
+
+  
+  // ----------- ANALIZA PULSÓW -----------------------------
+  if (pulse_ready_low) // sprawdzamy czy jest stan niski przez 9ms - start ramki
+  {
+    pulse_duration_low = pulse_end_low - pulse_start_low;
+  
+    if (pulse_duration_low > (LEAD_HIGH - TOLERANCE) && pulse_duration_low < (LEAD_HIGH + TOLERANCE))
     {
-      ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
-      bit_count++;
+      pulse_duration_9ms = pulse_duration_low; // przypisz czas trwania pulsu Low do zmiennej puls 9ms
+      pulse_ready9ms = true; // flaga poprawnego wykrycia pulsu 9ms w granicach tolerancji
     }
-    else if (pulse_duration > (LOW_THRESHOLD - TOLERANCE) && pulse_duration < (LOW_THRESHOLD + TOLERANCE))
+
+  }
+  // Sprawdzenie, czy impuls jest gotowy do analizy
+  if ((pulse_ready== true) && (pulse_ready9ms = true))
+  {
+    pulse_ready = false;
+    pulse_ready9ms = false; // kasujemy flagę wykrycia pulsu 9ms
+
+    // Obliczenie czasu trwania impulsu
+    pulse_duration = pulse_end - pulse_start;
+    //Serial.println(pulse_duration); odczyt dlugosci pulsow z pilota - debug
+    if (!data_start_detected)
     {
-      ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
-      bit_count++;
-    }
-
-    // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
-    if (bit_count == 32)
-    {
-      Serial.print("Kod IR: ");
-      Serial.println(ir_code, HEX);
-
-      // Rozbicie kodu na 4 bajty
-      uint8_t ADDR = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
-      uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
-      uint8_t CMD = (ir_code >> 8) & 0xFF;    // Trzeci bajt (komenda)
-      uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
-
-      // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
-      if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
+    
+      // Oczekiwanie na sygnał 4,5 ms wysoki
+      if (pulse_duration > (LEAD_HIGH - TOLERANCE) && pulse_duration < (LEAD_HIGH + TOLERANCE))
       {
-        Serial.println("Kod NEC jest poprawny. Adres: " + String(ADDR, HEX) + " Komenda: " + String(CMD, HEX));
+       
+        // Początek sygnału: 9 ms niski
+        //Serial.println("Otrzymano początek sygnału (9 ms niski).");
+        //pulse_duration_9ms = pulse_duration; 
+      }
+      else if (pulse_duration > (LEAD_LOW - TOLERANCE) && pulse_duration < (LEAD_LOW + TOLERANCE))
+      {
+        
+        pulse_duration_4_5ms = pulse_duration;
+        // Początek sygnału: 4,5 ms wysoki
+        // Serial.println("Otrzymano początek sygnału (4,5 ms wysoki).");
+        data_start_detected = true;  // Ustawienie flagi po wykryciu sygnału wstępnego
+        bit_count = 0;               // Reset bit_count przed odebraniem danych
+        ir_code = 0;                 // Reset kodu IR przed odebraniem danych
+      }
+    }
+    else
+    {
+      // Sygnały dla bajtów (adresu ADDR, IADDR, komendy CMD, ICMD) zaczynają się po wstępnym sygnale
+      if (pulse_duration > (HIGH_THRESHOLD - TOLERANCE) && pulse_duration < (HIGH_THRESHOLD + TOLERANCE))
+      {
+        ir_code = (ir_code << 1) | 1;  // Dodanie "1" do kodu IR
+        bit_count++;
+        pulse_duration_1690us = pulse_duration;
+      }
+      else if (pulse_duration > (LOW_THRESHOLD - TOLERANCE) && pulse_duration < (LOW_THRESHOLD + TOLERANCE))
+      {
+        ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
+        bit_count++;
+        pulse_duration_690us = pulse_duration;
+      }
 
-        // Rozpoznawanie przycisków na podstawie kodu
-        if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
-        { 
-          IRrightArrow = true;
-        } 
-        else if (ir_code == rcCmdArrowLeft)    // Przycisk w lewo
-        {  
-          IRleftArrow = true;
-        }
-        else if (ir_code == rcCmdArrowUp)      // Przycisk w górę
-        {  
-          IRupArrow = true;
-        }
-        else if (ir_code == rcCmdArrowDown)    // Przycisk w dół
-        {  
-          IRdownArrow = true;
-        }
-        else if (ir_code == rcCmdMenu)         // Przycisk HOME
-        {  
-          IRmenuButton = true;
-        }
-        else if (ir_code == rcCmdOk)           // Przycisk OK
-        {  
-          IRokButton = true;
-        }
-        else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
-        {  
-          IRvolumeUp = true;
-        }
-        else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
-        {  
-          IRvolumeDown = true;
-        }
-        else if (ir_code == rcCmdBankUp)     // Przycisk FAV+
-        {  
-          IRbankUp = true;
-        }
-        else if (ir_code == rcCmdBankDown)   // Przycisk FAV-
-        {  
-          IRbankDown = true;
+      // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
+      if (bit_count == 32)
+      {
+        // Rozbicie kodu na 4 bajty
+        uint8_t ADDR = (ir_code >> 24) & 0xFF;  // Pierwszy bajt
+        uint8_t IADDR = (ir_code >> 16) & 0xFF; // Drugi bajt (inwersja adresu)
+        uint8_t CMD = (ir_code >> 8) & 0xFF;    // Trzeci bajt (komenda)
+        uint8_t ICMD = ir_code & 0xFF;          // Czwarty bajt (inwersja komendy)
+
+        // Sprawdzenie poprawności (inwersja) bajtów adresu i komendy
+        if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
+        {
+          data_start_detected = false;
+          //bit_count = 0;
         }
         else
         {
-          Serial.println("Inny przycisk");
+          ir_code = 0; 
+          //ir_code=0xF0F0F0F0;  // Ustawiamy F0F0F0F0 jako flagę błednego kodu
+          data_start_detected = false;
+          //bit_count = 0;        
         }
+
+      }
+    }
+  }
+  runTime2 = esp_timer_get_time();
+}
+
+uint32_t reverse_bits(uint32_t inval, int bits)
+{
+  if ( bits > 0 )
+  {
+    bits--;
+    return reverse_bits(inval >> 1, bits) | ((inval & 1) << bits);
+  }
+  return 0;
+}
+  
+// Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
+void processIRCode()
+{
+  if (bit_count == 32)
+  {
+    if (ir_code != 0)
+    {
+      detachInterrupt(recv_pin);
+      Serial.print("Kod NEC OK: ");
+      Serial.print(ir_code, HEX);
+      ir_code = reverse_bits(ir_code, 32);   // Rotacja bitów zmiana z LSB-MSB na MSB-LSB
+      Serial.print("  MSB-LSB: ");
+      Serial.print(ir_code, HEX);
+
+      uint8_t CMD = (ir_code >> 16) & 0xFF;  // Drugi bajt (inwersja adresu)
+      uint8_t ADDR = ir_code & 0xFF;         // Czwarty bajt (inwersja komendy)
+
+      Serial.print("  ADR:");
+      Serial.print(ADDR, HEX);
+      Serial.print(" CMD:");
+      Serial.println(CMD, HEX);
+      ir_code = ADDR << 8 | CMD;             // Łączymy ADDR i CMD w jedną zmienną 0xDDRCMD
+
+      Serial.print("Czasy trwania impulsów:  9ms:");
+      Serial.print(pulse_duration_9ms);
+      Serial.print("  4.5ms:");
+      Serial.print(pulse_duration_4_5ms);
+      Serial.print("  1690us:");
+      Serial.print(pulse_duration_1690us);
+      Serial.print("  690us:");
+      Serial.println(pulse_duration_690us);
+
+      attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
+      Serial.print("Kontrola stosu:");
+      Serial.println(uxTaskGetStackHighWaterMark(NULL));
+
+      // Rozpoznawanie przycisków na podstawie kodu
+      if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
+      { 
+          IRrightArrow = true;
+      } 
+      else if (ir_code == rcCmdArrowLeft)    // Przycisk w lewo
+      {  
+          IRleftArrow = true;
+      }
+      else if (ir_code == rcCmdArrowUp)      // Przycisk w górę
+      {  
+          IRupArrow = true;
+      }
+      else if (ir_code == rcCmdArrowDown)    // Przycisk w dół
+      {  
+          IRdownArrow = true;
+      }
+      else if (ir_code == rcCmdHome)         // Przycisk HOME
+      {  
+          IRmenuButton = true;
+      }
+      else if (ir_code == rcCmdOk)           // Przycisk OK
+      {  
+          IRokButton = true;
+      }
+      else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
+      {  
+          IRvolumeUp = true;
+      }
+      else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
+      {  
+          IRvolumeDown = true;
+      }
+      else if (ir_code == rcCmdBankUp)       // Przycisk FAV+
+      {  
+          IRbankUp = true;
+      }
+      else if (ir_code == rcCmdBankDown)     // Przycisk FAV-
+      {  
+          IRbankDown = true;
       }
       else
       {
-        Serial.println("Błąd: Kod NEC jest niepoprawny!");
+          Serial.println("Inny przycisk");
       }
 
-      // Resetowanie flagi i zmiennych po pełnym kodzie
-      data_start_detected = false;
-      bit_count = 0;
       ir_code = 0;
+      bit_count = 0;
     }
   }
 }
+
+
+
+
+
 
 // Tablica z dodanymi polskimi znakami diakrytycznymi
 const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") = 
@@ -1427,11 +1533,22 @@ void playFromSelectedFolder()
   while (File entry = root.openNextFile())
   {
     String fileName = entry.name();
-    Serial.println(fileName);
+    Serial.print("Plik: ");
+    Serial.print(fileName);
+    
+    // Pobieranie rozmiaru pliku w bajtach i przeliczanie na megabajty
+    float fileSizeMB = entry.size() / 1024.0 / 1024.0;
+    
+    // Wydrukowanie rozmiaru pliku w MB z dokładnością do 0,1
+    Serial.print(" | Rozmiar: ");
+    Serial.print(fileSizeMB, 1); // 1 oznacza jedno miejsce po przecinku
+    Serial.println(" MB");
+
     if (isAudioFile(fileName.c_str()))
     {
         totalFilesInFolder++;
     }
+
     entry.close(); // Zamykaj każdy plik natychmiast po zakończeniu przetwarzania
   }
   root.rewindDirectory(); // Przewiń katalog na początek
@@ -1485,7 +1602,6 @@ void playFromSelectedFolder()
       button1.loop();
       button2.loop();
       handleJoystick();
-      analyzePulseFromIR();
 
       // Jeśli skończył się plik, przejdź do następnego
       if (fileEnd)
@@ -2506,13 +2622,8 @@ void loop()
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
   handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
+  processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
 
-  if (pulse_ready)
-  {
-    pulse_ready = false;
-    analyzePulseFromIR();  // Przetwarzanie odebranego sygnału IR
-  }
-  
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki
   {
@@ -2827,6 +2938,6 @@ void loop()
     }
     displayBank();
   }
-  
+
 }
 

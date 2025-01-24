@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation, and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather informations.
+This project is an **Internet Radio and Audio Player** built using the ESP32 platform. It allows you to listen to various internet radio stations and play audio files directly from an SD card. The device features an OLED display for user interaction, rotary encoders for navigation and volume control, and supports multiple audio formats such as **MP3**, **FLAC**, and **AAC**. It also provides real-time weather information and can be controlled via an infrared (IR) remote using the **NEC protocol** at 38 kHz.
 
 ## Features
 
@@ -15,7 +15,8 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 - **Weather Updates**: Display current weather conditions on the OLED display.
 - **File Browser**: Browse and play files from SD card directories.
 - **Multiple Radio Station Banks**: Store up to 100 stations per bank with support for up to 16 banks.
-  
+- **Infrared Remote Control**: Control the player using an IR remote control, compatible with the **NEC protocol** (38 kHz). Functions include navigation (up/down/left/right), play/pause, and menu access.
+
 ## Hardware Requirements
 
 - **ESP32-S3** development board
@@ -23,6 +24,7 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 - **256x64 OLED Display with SSD1322 driver** (SPI-based)
 - **Rotary Encoders** with push buttons (x2)
 - **SD Card Reader** (SPI-based)
+- **IR Receiver** for 38 kHz (for remote control using the NEC protocol)
 - **Wi-Fi connection** for radio streaming and weather updates
 
 ## Pin Configuration
@@ -50,6 +52,9 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 - **Right Encoder**: CLK: Pin 6, DT: Pin 5, SW: Pin 4
 - **Left Encoder**: CLK: Pin 11, DT: Pin 10, SW: Pin 1
 
+### IR Receiver (NEC Protocol, 38 kHz)
+- **IR Receiver Signal Pin**: Pin 15
+
 ## Software Dependencies
 
 The project uses various libraries to enable functionality:
@@ -60,6 +65,7 @@ The project uses various libraries to enable functionality:
 - **[ezButton](https://github.com/ArduinoGetStarted/ezButton)**: For handling rotary encoder buttons.
 - **[WiFiManager](https://github.com/tzapu/WiFiManager)**: For Wi-Fi setup.
 - **[ArduinoJson](https://arduinojson.org/)**: For handling JSON data (e.g., weather API responses).
+- **[IRremote](https://github.com/z3t0/Arduino-IRremote)**: For decoding infrared remote signals using the NEC protocol.
 - **[Time](https://www.arduino.cc/reference/en/libraries/time/)**: For NTP-based time synchronization.
 
 ## Usage
@@ -67,7 +73,14 @@ The project uses various libraries to enable functionality:
 1. Flash the code to your ESP32 device.
 2. Use **WiFiManager** to set up Wi-Fi connectivity.
 3. Stream internet radio from predefined stations or play audio files from an SD card.
-4. Navigate between menus using the rotary encoders and display.
+4. Navigate between menus using the rotary encoders, OLED display, and IR remote control.
+
+### IR Remote Control Functions
+The player can be controlled using an IR remote compatible with the **NEC protocol** (38 kHz). The following functions are mapped:
+
+- **Navigation**: Control the player using up, down, left, right arrows on the remote.
+- **Play/Pause**: Use the center or play button to toggle play/pause.
+- **Menu Access**: Use the dedicated menu or home button to enter settings.
 
 ### Radio Station URLs
 The radio stations are defined in banks, with up to 100 stations per bank. You can modify the station list by changing the URLs in the code:
@@ -84,4 +97,3 @@ This project is open-source and licensed under the [MIT License](https://opensou
 
 - Special thanks to the authors of the libraries used in this project.
 - The project is inspired by the open-source IoT community.
-

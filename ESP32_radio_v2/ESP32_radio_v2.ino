@@ -1610,6 +1610,7 @@ void playFromSelectedFolder()
       button1.loop();
       button2.loop();
       handleJoystick();
+      processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
 
       // Jeśli skończył się plik, przejdź do następnego
       if (fileEnd)
@@ -1685,8 +1686,9 @@ void playFromSelectedFolder()
         }
       }
 
-      if (button2.isPressed())
+      if (button2.isPressed() || (IRokButton == true))
       {
+        IRokButton = false;
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
@@ -1708,9 +1710,30 @@ void playFromSelectedFolder()
         break;
       }
 
+      if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
+      {
+        IRdownArrow = false;
+        timeDisplay = false;
+        displayActive = true;
+        displayStartTime = millis();
+        scrollDownFolders();
+        folderIndex = currentSelection; // Zaktualizuj indeks folderu
+      }
+
+      if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
+      {
+        IRupArrow = false;
+        timeDisplay = false;
+        displayActive = true;
+        displayStartTime = millis();
+        scrollUpFolders();
+        folderIndex = currentSelection; // Zaktualizuj indeks folderu
+      }
+
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
       backDisplayPlayer();       // Obsługa bezczynności, przywrócenie wyświetlania danych audio
+      volumeSetFromRemote();     // Obsługa regulacji głośności z pilota zdalnego sterowania
     }
 
     // Jeśli encoderButton1 aktywowany, wyjdź z pętli
@@ -1993,35 +2016,46 @@ void handleEncoder2Rotation()
     timeDisplay = false;
     if (digitalRead(DT_PIN2) == HIGH) 
     {
-      folderIndex--;
-      if (folderIndex < 0)
-      {
-          folderIndex = 0;
-      }
-      Serial.print("Numer folderu do tyłu: ");
-      Serial.println(folderIndex);
-
-      scrollUp();
-      displayFolders();
+      scrollUpFolders();
     } 
     else 
     {
-      folderIndex++;
-      if (folderIndex > (directoryCount - 1))
-      {
-        folderIndex = directoryCount - 1;
-      }
-      Serial.print("Numer folderu do przodu: ");
-      Serial.println(folderIndex);
-
-      scrollDown();
-      displayFolders();
+      scrollDownFolders();
     }
 
     displayActive = true;
     displayStartTime = millis();
   }
   prev_CLK_state2 = CLK_state2;
+}
+
+
+void scrollUpFolders()
+{
+  folderIndex--;
+  if (folderIndex < 0)
+  {
+      folderIndex = 0;
+  }
+  Serial.print("Numer folderu do tyłu: ");
+  Serial.println(folderIndex);
+
+  scrollUp();
+  displayFolders();
+}
+
+void scrollDownFolders()
+{
+  folderIndex++;
+  if (folderIndex > (directoryCount - 1))
+  {
+    folderIndex = directoryCount - 1;
+  }
+  Serial.print("Numer folderu do przodu: ");
+  Serial.println(folderIndex);
+
+  scrollDown();
+  displayFolders();
 }
 
 // Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
@@ -2520,7 +2554,33 @@ void displayBank()
   u8g2.drawStr(210, 40, bankNrStr.c_str());  // Wyświetlenie numeru banku
   u8g2.sendBuffer();
 }
-  
+
+// Obsługa regulacji głośności z pilota zdalnego sterowania
+void volumeSetFromRemote()
+{
+  if (IRvolumeUp == true)  // Przycisk VOL+ w pilocie
+  {
+    IRvolumeUp = false;
+    volumeValue++;
+    if (volumeValue > 18)
+    {
+      volumeValue = 18;
+    }
+    volumeSet();
+  }
+
+  if (IRvolumeDown == true)  // Przycisk VOL- w pilocie
+  {
+    IRvolumeDown = false;
+    volumeValue--;
+    if (volumeValue < 3)
+    {
+      volumeValue = 3;
+    }
+    volumeSet();
+  }
+}
+
 
 void setup()
 {
@@ -2631,6 +2691,7 @@ void loop()
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
   handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
   processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
+  volumeSetFromRemote();   // Obsługa regulacji głośności z pilota zdalnego sterowania
 
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki
@@ -2751,8 +2812,10 @@ void loop()
     displayRadio();
   }
   
-  if ((currentOption == PLAY_FILES) && button1.isPressed() && (menuEnable == true))
+  if ((currentOption == PLAY_FILES) && (menuEnable == true) && (button1.isPressed() || IRokButton == true))
+
   {
+    IRokButton = false;
     menuEnable = false;
     if (!SD.begin(SD_CS))
     {
@@ -2776,8 +2839,9 @@ void loop()
     playFromSelectedFolder();
   }
 
-  if ((currentOption == INTERNET_RADIO) && button1.isPressed() && (menuEnable == true))
+  if ((currentOption == INTERNET_RADIO) && (menuEnable == true) && (button1.isPressed() || IRokButton == true))
   {
+    IRokButton = false;
     menuEnable = false;
     volumeValue = 12;
     audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
@@ -2832,28 +2896,6 @@ void loop()
     Serial.print("Numer stacji do tyłu: ");
     Serial.println(station_nr);
     changeStation();
-  }
-
-  if (IRvolumeUp == true)  // Przycisk VOL+ w pilocie
-  {
-    IRvolumeUp = false;
-    volumeValue++;
-    if (volumeValue > 18)
-    {
-      volumeValue = 18;
-    }
-    volumeSet();
-  }
-
-  if (IRvolumeDown == true)  // Przycisk VOL- w pilocie
-  {
-    IRvolumeDown = false;
-    volumeValue--;
-    if (volumeValue < 3)
-    {
-      volumeValue = 3;
-    }
-    volumeSet();
   }
 
   if (IRmenuButton == true)  // Przycisk HOME w pilocie

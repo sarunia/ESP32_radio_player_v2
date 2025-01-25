@@ -41,7 +41,8 @@
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
 #define MAX_STATIONS 100          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
-#define MAX_FILES 128             // Maksymalna liczba plików lub katalogów w tablicy directories
+#define MAX_DIRECTORIES 128       // Maksymalna liczba katalogów
+#define MAX_FILES 128             // Maksymalna liczba plików w katalogu
 #define STATIONS_URL    "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
@@ -69,14 +70,13 @@ int CLK_state1;                   // Aktualny stan CLK enkodera prawego
 int prev_CLK_state1;              // Poprzedni stan CLK enkodera prawego    
 int CLK_state2;                   // Aktualny stan CLK enkodera lewego
 int prev_CLK_state2;              // Poprzedni stan CLK enkodera lewego          
-int counter = 0;                  // Licznik dla przycisków
 int stationsCount = 0;            // Aktualna liczba przechowywanych stacji w tablicy
-int directoryCount = 0;           // Licznik katalogów
+int folderCount = 0;              // Licznik folderów na karcie SD
+int filesCount = 0;               // Licznik plików w danym folderze na karcie SD
 int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze wskazanego folderu
 int fileFromBuffer = 0;           // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
 int folderFromBuffer = 0;         // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
-int totalFilesInFolder = 0;       // Zmienna przechowująca łączną liczbę plików w folderze
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 4;          // Maksymalna liczba widocznych linii na ekranie OLED
@@ -98,13 +98,15 @@ bool playNextFile = false;        // Flaga określająca przejście do kolejnego
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
 bool weatherServerConnection = false;  // Flaga określająca połączenie z serwerem pogody
+bool folderSelection = false;     // Flaga określająca wyświetlanie listy folderów z karty SD
+bool fileSelection = false;       // Flaga określająca wyświetlanie listy plików z aktualnego folderu
 
 // Definicje flag do obsługi z pilota zdalnego sterowania z protokołu NEC 38kHz
 bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
 bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
 bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
 bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
-bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MENU"
+bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MODE"
 bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK"
 bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL+
 bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
@@ -117,7 +119,8 @@ unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania kom
 unsigned long seconds = 0;                // Licznik sekund timera
 
 
-String directories[MAX_FILES];            // Tablica z indeksami i ścieżkami katalogów
+String directories[MAX_DIRECTORIES];      // Tablica z indeksami i ścieżkami katalogów
+String files[MAX_FILES];                  // Tablica do przechowywania nazw plików
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
 String stationName;                       // Nazwa aktualnie wybranej stacji radiowej
 String stationString;                     // Dodatkowe dane stacji radiowej (jeśli istnieją)
@@ -223,17 +226,17 @@ const int HIGH_THRESHOLD = 1690;    // Sygnał "1"
 const int LOW_THRESHOLD = 600;      // Sygnał "0"
 
 
-// Przypisanie przycisków i adresu z komendą pilota w standardzie NEC 
+// ========= Indywidualne przypisanie przycisków, czyli adresu z komendą pilota w standardzie NEC ============ //
 #define rcCmdVolumeUp     0x0028   // Przycisk VOL+
 #define rcCmdVolumeDown   0x0024   // Przycisk VOL-
-#define rcCmdArrowRight   0x0026   // Przycisk w prawo - następna stacja / następny plik
-#define rcCmdArrowLeft    0x0027   // Przycisk w lewo - poprzednia stacja / poprzedni plik
-#define rcCmdArrowUp      0x0030   // Przycisk w górę - lista stacji / lista folderów - krok do góry
-#define rcCmdArrowDown    0x0022   // Przycisk w dół - lista stacji / lista folderów - krok w dół
-#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie stacji / folderu
+#define rcCmdArrowRight   0x0026   // Przycisk w prawo - następna stacja / następny plik, od razu uruchamiane przejście
+#define rcCmdArrowLeft    0x0027   // Przycisk w lewo - poprzednia stacja / poprzedni plik, od razu uruchamiane przejście
+#define rcCmdArrowUp      0x0030   // Przycisk w górę - lista stacji / lista plików - krok do góry na przewijanej liście
+#define rcCmdArrowDown    0x0022   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
+#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie wybranej stacji / folderu / pliku z przewijanej listy 
 #define rcCmdMode         0x0020   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
-#define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie menu systemowego 
-#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie
+#define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie menu systemowego ********do zrobienia w przyszłości
+#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie ********do zrobienia w przyszłości
 #define rcCmdKey0         0x0012   // Przycisk "0"
 #define rcCmdKey1         0x0015   // Przycisk "1"
 #define rcCmdKey2         0x0014   // Przycisk "2"
@@ -244,8 +247,8 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdKey7         0x0007   // Przycisk "7"
 #define rcCmdKey8         0x0006   // Przycisk "8"
 #define rcCmdKey9         0x0005   // Przycisk "9"
-#define rcCmdBankUp       0x0018   // Przycisk FAV+
-#define rcCmdBankDown     0x0019   // Przycisk FAV-
+#define rcCmdBankUp       0x0018   // Przycisk FAV+ - lista banków / lista folderów - krok w dół na przewijanej liście
+#define rcCmdBankDown     0x0019   // Przycisk FAV- lista banków / lista folderów - krok do góry na przewijanej liście
 
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
@@ -273,7 +276,7 @@ void IRAM_ATTR pulseISR()
   }
 
   
-  // ----------- ANALIZA PULSÓW -----------------------------
+  // ------------------------------ ANALIZA PULSÓW ----------------------------- //
   if (pulse_ready_low) // sprawdzamy czy jest stan niski przez 9ms - start ramki
   {
     pulse_duration_low = pulse_end_low - pulse_start_low;
@@ -358,6 +361,7 @@ void IRAM_ATTR pulseISR()
   runTime2 = esp_timer_get_time();
 }
 
+// Odwrócenie kolejności bitów z otrzymanego ciągu z nadajnika IR
 uint32_t reverse_bits(uint32_t inval, int bits)
 {
   if ( bits > 0 )
@@ -371,7 +375,7 @@ uint32_t reverse_bits(uint32_t inval, int bits)
 // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
 void processIRCode()
 {
-  if (bit_count == 32)
+  if (bit_count == 32)  // Jeśli poskładany pełny ciąg 4 bajtów
   {
     if (ir_code != 0)
     {
@@ -421,7 +425,7 @@ void processIRCode()
       {  
           IRdownArrow = true;
       }
-      else if (ir_code == rcCmdHome)         // Przycisk HOME
+      else if (ir_code == rcCmdMode)         // Przycisk MODE
       {  
           IRmenuButton = true;
       }
@@ -455,10 +459,6 @@ void processIRCode()
     }
   }
 }
-
-
-
-
 
 
 // Tablica z dodanymi polskimi znakami diakrytycznymi
@@ -1412,7 +1412,7 @@ int compareStringsWithNumbers(const String &a, const String &b)
 
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
 {
-  directoryCount = 0;
+  folderCount = 0;
 
   // Przejrzyj wszystkie pliki w katalogu
   while (true)
@@ -1432,8 +1432,8 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
       // Sprawdź, czy katalog to nie "System Volume Information"
       if (path != "/System Volume Information")
       {
-        directories[directoryCount] = path; // Zapisz ścieżkę do tablicy
-        directoryCount++; // Zwiększ licznik katalogów
+        directories[folderCount] = path; // Zapisz ścieżkę do tablicy
+        folderCount++; // Zwiększ licznik katalogów
       }
     }
 
@@ -1441,9 +1441,9 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
   }
 
   // Sortowanie katalogów za pomocą funkcji porównującej
-  for (int i = 0; i < directoryCount - 1; i++)
+  for (int i = 0; i < folderCount - 1; i++)
   {
-    for (int j = i + 1; j < directoryCount; j++)
+    for (int j = i + 1; j < folderCount; j++)
     {
       if (compareStringsWithNumbers(directories[i], directories[j]) > 0)
       {
@@ -1455,7 +1455,7 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
   }
 
   // Wydrukuj na serial terminalu alfabetycznie posortowane katalogi
-  for (int i = 0; i < directoryCount; i++)
+  for (int i = 0; i < folderCount; i++)
   {
     Serial.print(i + 1); // Drukuje alfabetyczny numer katalogu
     Serial.print(": ");
@@ -1463,7 +1463,7 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
   }
 
   // Wyświetl na ekranie, jeśli to nie System Volume Information
-  for (int i = 0; i < directoryCount; i++)
+  for (int i = 0; i < folderCount; i++)
   {
     String fullPath = directories[i];
   }
@@ -1537,22 +1537,28 @@ int maxSelection()
 {
   if (currentOption == INTERNET_RADIO)
   {
-    return stationsCount - 1;
+    return stationsCount - 1;  // Zwraca maksymalny wybór stacji radiowych
   }
   else if (currentOption == PLAY_FILES)
   {
-    return directoryCount - 1;
+    if (folderSelection == true)
+    {
+      return folderCount - 1;  // Zwraca maksymalny wybór folderów
+    }
+    else if (fileSelection == true)
+    {
+      return filesCount - 1;  // Zwraca maksymalny wybór plików w bieżącym folderze
+    }
   }
   return 0; // Zwraca 0, jeśli żaden warunek nie jest spełniony
 }
 
 
-
-
-
-// Funkcja do odtwarzania plików z wybranego folderu
+// Funkcja do odtwarzania plików audio z wybranej lokalizacji z karty SD
 void playFromSelectedFolder()
 {
+  fileSelection = false;
+  folderSelection = false;
   folderNameString = directories[folderIndex];
   Serial.println("Odtwarzanie plików z wybranego folderu: " + folderNameString);
 
@@ -1560,12 +1566,12 @@ void playFromSelectedFolder()
   File root = SD.open(folderNameString);
   if (!root)
   {
-      Serial.println("Błąd otwarcia katalogu!");
-      return;
+    Serial.println("Błąd otwarcia katalogu!");
+    return;
   }
 
-  totalFilesInFolder = 0;
-  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderzeplayNextFolder
+  filesCount = 0;
+  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderze
 
   // Zliczanie plików audio w folderze
   while (File entry = root.openNextFile())
@@ -1585,29 +1591,29 @@ void playFromSelectedFolder()
     // Sprawdzanie, czy plik jest plikiem audio
     if (isAudioFile(fileName.c_str()))
     {
-        totalFilesInFolder++;  // Zwiększ licznik plików audio
+      files[filesCount] = fileName;  // Dodanie pliku do tablicy files[]
+      filesCount++;  // Zwiększ licznik plików audio
     }
     else
     {
-        // Jeśli plik nie jest plikiem audio, wydrukuj pełną nazwę pliku wraz z rozszerzeniem
-        Serial.print("Pominięty plik: ");
-        Serial.println(fileName);  // Drukowanie pełnej nazwy pliku z rozszerzeniem
+      // Jeśli plik nie jest plikiem audio, wydrukuj pełną nazwę pliku wraz z rozszerzeniem
+      Serial.print("Pominięty plik: ");
+      Serial.println(fileName);  // Drukowanie pełnej nazwy pliku z rozszerzeniem
     }
 
     entry.close(); // Zamykaj każdy plik natychmiast po zakończeniu przetwarzania
   }
   root.rewindDirectory(); // Przewiń katalog na początek
 
-
   bool playNextFolder = false;  // Flaga kontrolująca przejście do kolejnego folderu
 
   // Odtwarzanie plików
-  while (fileIndex <= totalFilesInFolder && !playNextFolder)
+  while (fileIndex <= filesCount && !playNextFolder)
   {
     File entry = root.openNextFile();
     if (!entry)
     {
-        break;  // Koniec plików w folderze
+      break;  // Koniec plików w folderze
     }
 
     String fileName = entry.name();
@@ -1624,7 +1630,7 @@ void playFromSelectedFolder()
     Serial.print("Odtwarzanie pliku: ");
     Serial.print(fileIndex); // Numer pliku
     Serial.print("/");
-    Serial.print(totalFilesInFolder); // Liczba plików
+    Serial.print(filesCount); // Liczba plików
     Serial.print(" - ");
     Serial.println(fileName);
 
@@ -1648,7 +1654,7 @@ void playFromSelectedFolder()
       button1.loop();
       button2.loop();
       handleJoystick();
-      processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
+      processIRCode();  // Funkcja przypisująca odpowiednie flagi do użytych przycisków z pilota zdalnego sterowania
 
       // Jeśli skończył się plik, przejdź do następnego
       if (fileEnd)
@@ -1659,15 +1665,15 @@ void playFromSelectedFolder()
         break;
       }
 
+      // Jeśli wybrany następny plik
       if ((playNextFile == true) || (IRrightArrow == true))
       {
-        counter = 0;
         IRrightArrow = false;
         playNextFile = false;
         isPlaying = false;
         audio.stopSong();
         fileIndex++;
-        if (fileIndex > totalFilesInFolder)
+        if (fileIndex > filesCount)
         {
           Serial.println("To jest ostatni plik w folderze");
           folderIndex++;
@@ -1676,9 +1682,9 @@ void playFromSelectedFolder()
         break;
       }
 
+      // Jeśli wybrany poprzedni plik
       if ((playPreviousFile == true) || (IRleftArrow == true))
       {
-        counter = 0;
         IRleftArrow = false;
         playPreviousFile = false;
         isPlaying = false;
@@ -1702,7 +1708,7 @@ void playFromSelectedFolder()
               break; // Wyjdź, jeśli nie znaleziono pliku
           }
         }
-        
+
         // Sprawdź, czy udało się otworzyć plik
         if (entry)
         {
@@ -1713,20 +1719,20 @@ void playFromSelectedFolder()
           if (isAudioFile(entry.name()))
           {
             audio.connecttoFS(SD, fullPath.c_str());
+            seconds = 0;
             isPlaying = true;
             Serial.print("Odtwarzanie pliku: ");
             Serial.print(fileFromBuffer); // Numeracja pliku
             Serial.print("/");
-            Serial.print(totalFilesInFolder); // Łączna liczba plików w folderze
+            Serial.print(filesCount); // Łączna liczba plików w folderze
             Serial.print(" - ");
             Serial.println(fileName);
           }
         }
       }
 
-      if (button2.isPressed() || (IRokButton == true))
+      if (button2.isPressed()) // Użycie przycisku enkodera nr 2
       {
-        IRokButton = false;
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
@@ -1740,26 +1746,19 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (button1.isPressed())
+      if (button1.isPressed() || (IRmenuButton == true)) // Użycie przycisku enkodera nr 1 lub naciśnięcie HOME na pilocie powoduje przerwanie odtwarzania i wyjście do menu
       {
+        IRmenuButton = false;
         audio.stopSong();
         encoderButton1 = true;
         break;
       }
 
-      if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
+      if (IRbankDown == true)  // Przycisk FAV- na pilocie do przewijania listy folderów z karty SD
       {
-        IRdownArrow = false;
-        timeDisplay = false;
-        displayActive = true;
-        displayStartTime = millis();
-        scrollDownFolders();
-        folderIndex = currentSelection; // Zaktualizuj indeks folderu
-      }
-
-      if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
-      {
-        IRupArrow = false;
+        IRbankDown = false;
+        fileSelection = false;
+        folderSelection = true;
         timeDisplay = false;
         displayActive = true;
         displayStartTime = millis();
@@ -1767,6 +1766,102 @@ void playFromSelectedFolder()
         folderIndex = currentSelection; // Zaktualizuj indeks folderu
       }
 
+      if (IRbankUp == true)  // Przycisk FAV+ na pilocie do przewijania listy folderów z karty SD
+      {
+        IRbankUp = false;
+        fileSelection = false;
+        folderSelection = true;
+        timeDisplay = false;
+        displayActive = true;
+        displayStartTime = millis();
+        scrollDownFolders();
+        folderIndex = currentSelection; // Zaktualizuj indeks folderu
+      }
+
+      if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie do przewijania listy plików z aktualnego folderu
+      {
+        IRdownArrow = false;
+        fileSelection = true;
+        folderSelection = false;
+        timeDisplay = false;
+        displayActive = true;
+        displayStartTime = millis();
+        scrollDownFiles();
+        fileIndex = currentSelection; // Zaktualizuj indeks pliku
+      }
+
+      if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie do przewijania listy plików z aktualnego folderu
+      {
+        IRupArrow = false;
+        fileSelection = true;
+        folderSelection = false;
+        timeDisplay = false;
+        displayActive = true;
+        displayStartTime = millis();
+        scrollUpFiles();
+        fileIndex = currentSelection; // Zaktualizuj indeks pliku
+      }
+
+      if ((IRokButton == true) && (folderSelection == true))  // Zatwierdzenie startu odtwarzania z wybranego folderu
+      {
+        IRokButton = false;
+        folderSelection = false;
+        currentSelection = 0;
+        firstVisibleLine = 1;
+        audio.stopSong();
+        playNextFolder = true;
+        id3tag = false;
+        String text = "  ŁADOWANIE PLIKÓW Z WYBRANEGO FOLDERU... ";
+        processText(text);  // Podstawienie polskich znaków diakrytycznych
+        u8g2.clearBuffer();
+        u8g2.setFont(spleen6x12PL);
+        u8g2.setCursor(0, 10);
+        u8g2.print(text);
+        u8g2.sendBuffer();
+        break;
+      }
+
+      if ((fileSelection == true) && (IRokButton == true))  // Zatwierdzenie startu odtwarzania wybranego pliku z przewijanej listy plików
+      {
+        IRokButton = false;
+        fileSelection = false;
+        isPlaying = false;
+        audio.stopSong();
+        root.rewindDirectory(); // Przewiń katalog na początek
+        entry = root.openNextFile(); // Otwórz pierwszy plik w katalogu
+        fileIndex = currentSelection + 1;
+        fileFromBuffer = fileIndex;
+        // Przesuń się do wybranego pliku
+        for (int i = 1; i < fileIndex; i++)
+        {
+          entry = root.openNextFile();
+          if (!entry)
+          {
+              break; // Wyjdź, jeśli nie znaleziono pliku
+          }
+        }
+
+        // Sprawdź, czy udało się otworzyć plik
+        if (entry)
+        {
+          // Zaktualizuj pełną ścieżkę do pliku
+          String fullPath = folderNameString + "/" + entry.name();
+
+          // Odtwórz tylko w przypadku, gdy to jest szukany plik
+          if (isAudioFile(entry.name()))
+          {
+            audio.connecttoFS(SD, fullPath.c_str());
+            seconds = 0;
+            isPlaying = true;
+            Serial.print("Odtwarzanie pliku: ");
+            Serial.print(fileFromBuffer); // Numeracja pliku
+            Serial.print("/");
+            Serial.print(filesCount); // Łączna liczba plików w folderze
+            Serial.print(" - ");
+            Serial.println(fileName);
+          }
+        } 
+      }
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
       backDisplayPlayer();       // Obsługa bezczynności, przywrócenie wyświetlania danych audio
@@ -1782,18 +1877,19 @@ void playFromSelectedFolder()
     }
 
     // Sprawdź, czy zakończono odtwarzanie plików w folderze
-    if (fileIndex > totalFilesInFolder)
+    if (fileIndex > filesCount)
     {
       Serial.println("To był ostatni plik w folderze, przechodzę do kolejnego folderu");
       playNextFolder = true;
       folderIndex++;
+      fileIndex = currentSelection + 1;
     }
   }
 
   // Przejdź do kolejnego folderu, jeśli ustawiono flagę
-  if (playNextFolder)
+  if (playNextFolder == true)
   {
-    if (folderIndex < directoryCount)  // Upewnij się, że folderIndex nie przekroczy dostępnych folderów
+    if (folderIndex < folderCount)  // Upewnij się, że folderIndex nie przekroczy dostępnych folderów
     {
       playFromSelectedFolder();  // Wywołanie funkcji tylko raz
     }
@@ -1806,6 +1902,49 @@ void playFromSelectedFolder()
   // Po zakończeniu zamknij katalog
   root.close();
 }
+
+// Wyświetlanie przewijalnej listy plików z podświetleniem wybranego pliku
+void displayFiles()
+{
+  String text = "   ODTWARZACZ PLIKÓW - LISTA PLIKÓW    ";
+  processText(text);  // Zamiana polskich znaków
+  u8g2.clearBuffer();
+  u8g2.setFont(spleen6x12PL);
+  u8g2.setCursor(0, 10);
+  u8g2.print(text);
+  u8g2.setCursor(0, 21);
+  u8g2.print(currentDirectory);  // Wyświetlenie bieżącego katalogu
+
+  int displayRow = 1;  // Numer wiersza wyświetlania, zaczynając od drugiego (pierwszy to nagłówek)
+
+  // Wyświetlanie plików zaczynając od pierwszej widocznej linii
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, filesCount); i++)
+  {
+    String fileName = files[i];  // files[] to tablica z nazwami plików
+
+    // Podświetlenie zaznaczonego pliku
+    if (i == currentSelection)
+    {
+      u8g2.setDrawColor(1);  // Białe tło
+      u8g2.drawBox(0, displayRow * 13 - 2, 256, 13);  // Narysuj prostokąt jako tło dla zaznaczonego pliku
+      u8g2.setDrawColor(0);  // Czarny kolor tekstu
+    }
+    else
+    {
+      u8g2.setDrawColor(1);  // Biały kolor tekstu na czarnym tle
+    }
+
+    u8g2.drawStr(0, displayRow * 13 + 8, fileName.c_str());  // Wyświetlanie pełnej nazwy pliku
+
+    // Przesunięcie do kolejnego wiersza
+    displayRow++;
+  }
+
+  // Przywróć domyślny kolor rysowania (biały tekst na czarnym tle)
+  u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+}
+
 
 // Obsługa wyświetlacza dla odtwarzanego strumienia radia internetowego
 void displayRadio()
@@ -1878,11 +2017,11 @@ void displayPlayer()
     u8g2.print("    ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
-    u8g2.print(totalFilesInFolder);
+    u8g2.print(filesCount);
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount);
+    u8g2.print(folderCount);
 
     if (artistString.length() > 33)
     {
@@ -1961,11 +2100,11 @@ void displayPlayer()
     u8g2.print("    ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
-    u8g2.print(totalFilesInFolder);
+    u8g2.print(filesCount);
     u8g2.print(" FOLDER ");
     u8g2.print(folderFromBuffer);
     u8g2.print("/");
-    u8g2.print(directoryCount);
+    u8g2.print(folderCount);
     u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
     processText(fileNameString);  // Podstawienie polskich znaków diakrytycznych
 
@@ -2004,6 +2143,8 @@ void backDisplayPlayer()
     displayPlayer();
     displayActive = false;
     timeDisplay = true;
+    fileSelection = false;
+    folderSelection = false;
   }
 }
 
@@ -2053,6 +2194,7 @@ void handleEncoder2Rotation()
   CLK_state2 = digitalRead(CLK_PIN2);
   if (CLK_state2 != prev_CLK_state2 && CLK_state2 == HIGH) 
   {
+    folderSelection = true;
     folderIndex = currentSelection; // Zaktualizuj indeks folderu
     timeDisplay = false;
     if (digitalRead(DT_PIN2) == HIGH) 
@@ -2070,13 +2212,13 @@ void handleEncoder2Rotation()
   prev_CLK_state2 = CLK_state2;
 }
 
-
+// Przewijanie listy folderów w górę
 void scrollUpFolders()
 {
   folderIndex--;
   if (folderIndex < 0)
   {
-      folderIndex = 0;
+      folderIndex = folderCount;
   }
   Serial.print("Numer folderu do tyłu: ");
   Serial.println(folderIndex);
@@ -2085,18 +2227,49 @@ void scrollUpFolders()
   displayFolders();
 }
 
+// Przewijanie listy folderów w dół
 void scrollDownFolders()
 {
   folderIndex++;
-  if (folderIndex > (directoryCount - 1))
+  if (folderIndex > (folderCount - 1))
   {
-    folderIndex = directoryCount - 1;
+    folderIndex = 1;
   }
   Serial.print("Numer folderu do przodu: ");
   Serial.println(folderIndex);
 
   scrollDown();
   displayFolders();
+}
+
+// Przewijanie listy plików w górę
+void scrollUpFiles()
+{
+  fileIndex--;
+  if (fileIndex < 0)
+  {
+      fileIndex = filesCount;
+  }
+  Serial.print("Numer pliku do tyłu: ");
+  Serial.println(fileIndex);
+
+  scrollUp();
+  displayFiles();
+}
+
+// Przewijanie listy plików w dół
+void scrollDownFiles()
+{
+  fileIndex++;
+  if (fileIndex > filesCount)
+  {
+    fileIndex = 1;
+  }
+  Serial.print("Numer pliku do przodu: ");
+  Serial.println(fileIndex);
+
+  scrollDown();
+  displayFiles();
 }
 
 // Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
@@ -2114,7 +2287,7 @@ void displayFolders()
   int displayRow = 1;  // Zmienna dla numeru wiersza, zaczynając od drugiego (pierwszy to nagłówek)
 
   // Wyświetlanie katalogów zaczynając od pierwszej widocznej linii
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, directoryCount); i++)
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, folderCount); i++)
   {
     String fullPath = directories[i];
 
@@ -2648,7 +2821,6 @@ void setup()
   // Przerwanie na zmianę stanu pinu (odczyt impulsu)
   attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
 
-
   // Odczytaj początkowy stan pinu CLK enkodera
   prev_CLK_state1 = digitalRead(CLK_PIN1);
   prev_CLK_state2 = digitalRead(CLK_PIN2);
@@ -2699,7 +2871,6 @@ void setup()
 
   // Inicjalizuj wyświetlacz i odczekaj 250 milisekund na włączenie
   u8g2.begin();
-  delay(250);
   
   u8g2.clearBuffer();	
   u8g2.setFont(u8g2_font_ncenB18_tr);
@@ -2707,8 +2878,6 @@ void setup()
   u8g2.sendBuffer();	
 
   button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
-
-  delay(1000); // Rozgrzewka wyświetlacza, popatrz jak ładnie świeci napis
 
   // Inicjalizacja WiFiManagera
   WiFiManager wifiManager;
@@ -2872,7 +3041,6 @@ void loop()
   }
   
   if ((currentOption == PLAY_FILES) && (menuEnable == true) && (button1.isPressed() || IRokButton == true))
-
   {
     IRokButton = false;
     menuEnable = false;
@@ -2957,7 +3125,7 @@ void loop()
     changeStation();
   }
 
-  if (IRmenuButton == true)  // Przycisk HOME w pilocie
+  if (IRmenuButton == true)  // Przycisk MODE w pilocie
   {
     IRmenuButton = false;
     timeDisplay = false;
@@ -3049,4 +3217,3 @@ void loop()
   }
 
 }
-

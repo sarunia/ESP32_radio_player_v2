@@ -97,6 +97,7 @@ bool bitratePresent = false;      // Flaga określająca, czy na serial terminal
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
 bool playPreviousFile = false;    // Flaga określająca przejście do poprzednio odtwarzanego pliku audio
 bool bankChange = false;          // Flaga określająca włączenie menu wyboru banku ze stacjami radiowymi
+bool weatherServerConnection = false;  // Flaga określająca połączenie z serwerem pogody
 
 // Definicje flag do obsługi z pilota zdalnego sterowania z protokołu NEC 38kHz
 bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
@@ -247,10 +248,6 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdBankDown     0x0019   // Przycisk FAV-
 
 
-
-
-
-
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
 void IRAM_ATTR pulseISR()
 {
@@ -348,14 +345,11 @@ void IRAM_ATTR pulseISR()
         if ((ADDR ^ IADDR) == 0xFF && (CMD ^ ICMD) == 0xFF)
         {
           data_start_detected = false;
-          //bit_count = 0;
         }
         else
         {
           ir_code = 0; 
-          //ir_code=0xF0F0F0F0;  // Ustawiamy F0F0F0F0 jako flagę błednego kodu
-          data_start_detected = false;
-          //bit_count = 0;        
+          data_start_detected = false;       
         }
 
       }
@@ -576,10 +570,17 @@ bool isAudioFile(const char *filename)
   }
 
   // Sprawdź rozszerzenie, ignorując wielkość liter
-  return (strcasecmp(ext, ".mp3") == 0 || 
-          strcasecmp(ext, ".wav") == 0 || 
-          strcasecmp(ext, ".flac") == 0);
+  return (strcasecmp(ext, ".mp3") == 0 ||  // MP3: popularny format stratny, szeroko stosowany
+          strcasecmp(ext, ".wav") == 0 ||  // WAV: nieskompresowany format bezstratny, często używany w nagraniach
+          strcasecmp(ext, ".flac") == 0 || // FLAC: bezstratna kompresja, wysoka jakość dźwięku
+          strcasecmp(ext, ".aac") == 0 ||  // AAC: lepsza kompresja niż MP3, używany w iTunes
+          strcasecmp(ext, ".wma") == 0 ||  // WMA: format stratny stworzony przez Microsoft
+          strcasecmp(ext, ".ogg") == 0 ||  // OGG: otwarty format stratny, często używany z kodekiem Vorbis
+          strcasecmp(ext, ".m4a") == 0 ||  // M4A: używany przez Apple, podobny do AAC
+          strcasecmp(ext, ".aiff") == 0 || // AIFF: nieskompresowany format bezstratny, używany głównie na komputerach Apple
+          strcasecmp(ext, ".alac") == 0);  // ALAC: bezstratny format od Apple, podobny do FLAC
 }
+
 
 // Funkcja do obsługi przycisków enkoderów, odpowiedzialna za debouncing i wykrywanie długiego naciśnięcia
 void handleButtons()  
@@ -681,6 +682,7 @@ void handleButtons()
 // Funkcja do pobierania danych z API z serwera pogody openweathermap.org
 void getWeatherData()
 {
+  weatherServerConnection = false;
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
@@ -692,6 +694,7 @@ void getWeatherData()
 
   if (httpCode == HTTP_CODE_OK)  // Sprawdzenie, czy odpowiedź z serwera była prawidłowa (kod 200 OK)
   {
+    weatherServerConnection = true;
     String payload = http.getString();  // Pobranie odpowiedzi z serwera w postaci ciągu znaków (JSON)
     Serial.println("Odpowiedź JSON z API:");
     Serial.println(payload); 
@@ -710,10 +713,8 @@ void getWeatherData()
   }
   else  // Jeśli połączenie z serwerem nie powiodło się
   {
-    Serial.println("Błąd połączenia z serwerem.");
-    u8g2.drawStr(0, 62, "                                           ");
-    u8g2.drawStr(0, 62, "Brak polaczenia z serwerem pogody");
-    u8g2.sendBuffer();  
+    weatherServerConnection = false;
+    Serial.println("Błąd połączenia z serwerem.");  
   }
   
   http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
@@ -785,7 +786,7 @@ void switchWeatherData()
 {
   u8g2.drawStr(0, 62, "                                           "); // Wypełnienie spacjami jako czyszczenie linii
   u8g2.setFont(spleen6x12PL);
-  if (timeDisplay == true)
+  if ((timeDisplay == true) && (weatherServerConnection == true))
   {
     if (cycle == 0)
     {
@@ -807,6 +808,16 @@ void switchWeatherData()
 
     u8g2.sendBuffer();
   }
+  if ((timeDisplay == true) && (weatherServerConnection == false))
+  {
+    u8g2.drawStr(0, 62, "                                           ");
+    String text = "--- Brak połączenia z serwerem pogody ---";
+    processText(text);  // Podstawienie polskich znaków diakrytycznych
+    u8g2.setCursor(0, 62);
+    u8g2.print(text);
+    u8g2.sendBuffer();
+  }
+  
   // Zmiana cyklu: przechodzimy do następnego zestawu danych
   cycle++;
   if (cycle > 2)
@@ -1488,6 +1499,13 @@ void scrollUp()
       firstVisibleLine = currentSelection;
     }
   }
+  else
+  {
+    // Jeśli osiągnięto wartość 0, przejdź do najwyższej wartości
+    currentSelection = maxSelection(); 
+    firstVisibleLine = currentSelection - maxVisibleLines + 1; // Ustaw pierwszą widoczną linię na najwyższą
+  }
+  
   Serial.print("Scroll Up: CurrentSelection = ");
   Serial.println(currentSelection);
 }
@@ -1502,11 +1520,19 @@ void scrollDown()
     {
       firstVisibleLine++;
     }
-    Serial.print("Scroll Down: CurrentSelection = ");
-    Serial.println(currentSelection);
   }
+  else
+  {
+    // Jeśli osiągnięto maksymalną wartość, przejdź do najmniejszej (0)
+    currentSelection = 0;
+    firstVisibleLine = 0; // Przywróć do pierwszej widocznej linii
+  }
+
+  Serial.print("Scroll Down: CurrentSelection = ");
+  Serial.println(currentSelection);
 }
 
+// Funkcja zwracająca maksymalny możliwy wybór w zależności od opcji
 int maxSelection()
 {
   if (currentOption == INTERNET_RADIO)
@@ -1519,6 +1545,10 @@ int maxSelection()
   }
   return 0; // Zwraca 0, jeśli żaden warunek nie jest spełniony
 }
+
+
+
+
 
 // Funkcja do odtwarzania plików z wybranego folderu
 void playFromSelectedFolder()
@@ -1552,14 +1582,22 @@ void playFromSelectedFolder()
     Serial.print(fileSizeMB, 1); // 1 oznacza jedno miejsce po przecinku
     Serial.println(" MB");
 
+    // Sprawdzanie, czy plik jest plikiem audio
     if (isAudioFile(fileName.c_str()))
     {
-        totalFilesInFolder++;
+        totalFilesInFolder++;  // Zwiększ licznik plików audio
+    }
+    else
+    {
+        // Jeśli plik nie jest plikiem audio, wydrukuj pełną nazwę pliku wraz z rozszerzeniem
+        Serial.print("Pominięty plik: ");
+        Serial.println(fileName);  // Drukowanie pełnej nazwy pliku z rozszerzeniem
     }
 
     entry.close(); // Zamykaj każdy plik natychmiast po zakończeniu przetwarzania
   }
   root.rewindDirectory(); // Przewiń katalog na początek
+
 
   bool playNextFolder = false;  // Flaga kontrolująca przejście do kolejnego folderu
 
@@ -1694,7 +1732,6 @@ void playFromSelectedFolder()
         id3tag = false;
         String text = "  ŁADOWANIE PLIKÓW Z WYBRANEGO FOLDERU... ";
         processText(text);  // Podstawienie polskich znaków diakrytycznych
-        Serial.println(text);
         u8g2.clearBuffer();
         u8g2.setFont(spleen6x12PL);
         u8g2.setCursor(0, 10);
@@ -1854,9 +1891,11 @@ void displayPlayer()
 
     // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
     Serial.println("Bajty RAW DATA artysty:");
-    for (int i = 0; i < artistString.length(); i++) {
+    for (int i = 0; i < artistString.length(); i++)
+    {
       Serial.print("0x");
-      if (artistString[i] < 0x10) {
+      if (artistString[i] < 0x10)
+      {
         Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
       }
       Serial.print(artistString[i], HEX); // Drukowanie znaku jako wartość hex
@@ -1876,9 +1915,11 @@ void displayPlayer()
 
     // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
     Serial.println("Bajty RAW DATA tytułu:");
-    for (int i = 0; i < titleString.length(); i++) {
+    for (int i = 0; i < titleString.length(); i++)
+    {
       Serial.print("0x");
-      if (titleString[i] < 0x10) {
+      if (titleString[i] < 0x10)
+      {
         Serial.print("0"); // Dodaj zero przed pojedynczymi cyframi w formacie hex
       }
       Serial.print(titleString[i], HEX); // Drukowanie znaku jako wartość hex
@@ -2632,6 +2673,24 @@ void setup()
     return;
   }
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
+
+  // Sprawdzanie pojemności i zajęctości karty SD
+  unsigned long totalSpace = SD.cardSize() / (1024 * 1024);  // Całkowita pojemność karty w MB
+  unsigned long usedSpace = SD.usedBytes() / (1024 * 1024);   // Użyta przestrzeń w MB
+  unsigned long freeSpace = totalSpace - usedSpace;  // Wolna przestrzeń w MB
+
+  Serial.print("Całkowita pojemność karty SD: ");
+  Serial.print(totalSpace);
+  Serial.println(" MB");
+
+  Serial.print("Użyte miejsce: ");
+  Serial.print(usedSpace);
+  Serial.println(" MB");
+
+  Serial.print("Wolne miejsce: ");
+  Serial.print(freeSpace);
+  Serial.println(" MB");
+
   Serial.print("Numer seryjny ESP:");
   Serial.println(ESP.getEfuseMac()); // Wyświetla unikalny adres MAC ESP32
   
@@ -2757,7 +2816,7 @@ void loop()
         station_nr--;
         if (station_nr < 1)
         {
-          station_nr = 1;
+          station_nr = stationsCount;
         }
         Serial.print("Numer stacji do tyłu: ");
         Serial.println(station_nr);
@@ -2768,7 +2827,7 @@ void loop()
         station_nr++;
         if (station_nr > stationsCount)
         {
-          station_nr = stationsCount;
+          station_nr = 1;
         }
         Serial.print("Numer stacji do przodu: ");
         Serial.println(station_nr);
@@ -2919,7 +2978,7 @@ void loop()
     station_nr++;
     if (station_nr > stationsCount) 
     {
-      station_nr = stationsCount;
+      station_nr = 1;
     }
     Serial.print("Numer stacji do do przodu: ");
     Serial.println(station_nr);
@@ -2937,7 +2996,7 @@ void loop()
     station_nr--;
     if (station_nr < 1) 
     {
-      station_nr = 1;
+      station_nr = stationsCount;
     }
     Serial.print("Numer stacji do tyłu: ");
     Serial.println(station_nr);

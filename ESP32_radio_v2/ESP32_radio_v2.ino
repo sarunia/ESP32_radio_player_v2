@@ -2026,7 +2026,7 @@ void displayPlayer()
     u8g2.clearBuffer();
     u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
-    u8g2.print("    ODTWARZANIE PLIKU ");
+    u8g2.print("ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
     u8g2.print(filesCount);
@@ -2041,7 +2041,7 @@ void displayPlayer()
     }
 
     // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
-    Serial.println("Bajty RAW DATA artysty:");
+    /*Serial.println("Bajty RAW DATA artysty:");
     for (int i = 0; i < artistString.length(); i++)
     {
       Serial.print("0x");
@@ -2052,7 +2052,7 @@ void displayPlayer()
       Serial.print(artistString[i], HEX); // Drukowanie znaku jako wartość hex
       Serial.print(" "); // Dodanie spacji po każdym bajcie
     }
-    Serial.println();
+    Serial.println();*/
 
     u8g2.setCursor(0, 21);
     u8g2.print("Artysta: ");
@@ -2065,7 +2065,7 @@ void displayPlayer()
     }
 
     // Pomocnicza pętla w celu wyłapania bajtów titleString na serial terminalu
-    Serial.println("Bajty RAW DATA tytułu:");
+    /*Serial.println("Bajty RAW DATA tytułu:");
     for (int i = 0; i < titleString.length(); i++)
     {
       Serial.print("0x");
@@ -2076,7 +2076,7 @@ void displayPlayer()
       Serial.print(titleString[i], HEX); // Drukowanie znaku jako wartość hex
       Serial.print(" "); // Dodanie spacji po każdym bajcie
     }
-    Serial.println();
+    Serial.println();*/
 
     u8g2.setCursor(0, 31);
     String text = "Tytuł: ";
@@ -2109,7 +2109,7 @@ void displayPlayer()
     u8g2.clearBuffer();
     u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
-    u8g2.print("    ODTWARZANIE PLIKU ");
+    u8g2.print("ODTWARZANIE PLIKU ");
     u8g2.print(fileFromBuffer);
     u8g2.print("/");
     u8g2.print(filesCount);

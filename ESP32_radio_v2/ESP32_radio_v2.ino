@@ -1655,22 +1655,14 @@ void playFromSelectedFolder()
       button1.loop();
       button2.loop();
       handleJoystick();
-      processIRCode();  // Funkcja przypisująca odpowiednie flagi do użytych przycisków z pilota zdalnego sterowania
+      processIRCode();
 
-      // Jeśli skończył się plik, przejdź do następnego
-      if (fileEnd)
-      {
-        fileEnd = false;
-        id3tag = false;
-        fileIndex++;
-        break;
-      }
-
-      // Jeśli wybrany następny plik
-      if ((playNextFile == true) || (IRrightArrow == true))
+      // Jeśli wybrany następny plik lub jeśli aktualnie odtwarzany plik skończył sie samoczynnie
+      if ((playNextFile == true) || (IRrightArrow == true) || (fileEnd == true))
       {
         IRrightArrow = false;
         playNextFile = false;
+        fileEnd = false;
         audio.stopSong();
         
         Serial.print("Numer indesku pliku przed Next File: ");

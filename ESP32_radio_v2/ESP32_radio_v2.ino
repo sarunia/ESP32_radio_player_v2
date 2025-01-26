@@ -1571,7 +1571,7 @@ void playFromSelectedFolder()
   }
 
   filesCount = 0;
-  fileIndex = 1; // Zaczynamy odtwarzanie od pierwszego pliku audio w folderze
+  fileIndex = 0;
 
   // Zliczanie plików audio w folderze
   while (File entry = root.openNextFile())
@@ -1591,7 +1591,8 @@ void playFromSelectedFolder()
     // Sprawdzanie, czy plik jest plikiem audio
     if (isAudioFile(fileName.c_str()))
     {
-      files[filesCount] = fileName;  // Dodanie pliku do tablicy files[]
+      // Zapisujemy pełną ścieżkę do pliku w tablicy `files[]`
+      files[filesCount] = folderNameString + "/" + fileName;
       filesCount++;  // Zwiększ licznik plików audio
     }
     else
@@ -1642,7 +1643,7 @@ void playFromSelectedFolder()
     audio.connecttoFS(SD, fullPath.c_str());
     seconds = 0;
     isPlaying = true;
-    fileFromBuffer = fileIndex;
+    fileFromBuffer = fileIndex + 1;
     folderFromBuffer = folderIndex + 1;
 
     entry.close();  // Zamykaj plik po odczytaniu
@@ -1670,16 +1671,43 @@ void playFromSelectedFolder()
       {
         IRrightArrow = false;
         playNextFile = false;
-        isPlaying = false;
         audio.stopSong();
+        
+        Serial.print("Numer indesku pliku przed Next File: ");
+        Serial.println(fileIndex);
+        // Przejdź do następnego pliku
         fileIndex++;
-        if (fileIndex > filesCount)
+        
+        if (fileIndex >= filesCount)  // Upewniamy się, że indeks nie przekroczy liczby plików
         {
           Serial.println("To jest ostatni plik w folderze");
-          folderIndex++;
+          folderIndex++; // Przejście do nowego folderu
           playFromSelectedFolder();
         }
-        break;
+        else
+        {
+          // Pobierz pełną ścieżkę następnego pliku
+          String fullPath = files[fileIndex];
+
+          // Sprawdź, czy plik to audio
+          if (isAudioFile(fullPath.c_str()))
+          {
+            audio.connecttoFS(SD, fullPath.c_str());
+            seconds = 0;
+            isPlaying = true;
+
+            Serial.print("Odtwarzanie pliku: ");
+            Serial.print(fileIndex + 1); // Wyświetl aktualny indeks pliku (1-based)
+            Serial.print("/");
+            Serial.print(filesCount);    // Łączna liczba plików w folderze
+            Serial.print(" - ");
+            Serial.println(fullPath);    // Pełna ścieżka pliku
+          }
+        }
+        Serial.print("Numer indesku pliku po Next File: ");
+        Serial.println(fileIndex);
+
+        fileFromBuffer = fileIndex + 1;
       }
 
       // Jeśli wybrany poprzedni plik
@@ -1687,48 +1715,39 @@ void playFromSelectedFolder()
       {
         IRleftArrow = false;
         playPreviousFile = false;
-        isPlaying = false;
+        //isPlaying = false;
         audio.stopSong();
+        Serial.print("Numer indesku pliku przed Previous File: ");
+        Serial.println(fileIndex);
+        // Przejdź do poprzedniego pliku
         fileIndex--;
-        if (fileIndex < 1)
+        if (fileIndex < 0)
         {
           Serial.println("To jest pierwszy plik w folderze");
-          fileIndex = 1;
+          fileIndex = 0;
         }
         fileFromBuffer = fileIndex;
-        root.rewindDirectory(); // Przewiń katalog na początek
-        entry = root.openNextFile(); // Otwórz pierwszy plik w katalogu
+        // Pobierz pełną ścieżkę poprzedniego pliku
+        String fullPath = files[fileIndex];
 
-        // Przesuń się do wybranego pliku
-        for (int i = 1; i < fileIndex; i++)
+        // Sprawdź, czy plik to audio
+        if (isAudioFile(fullPath.c_str()))
         {
-          entry = root.openNextFile();
-          if (!entry)
-          {
-              break; // Wyjdź, jeśli nie znaleziono pliku
-          }
-        }
+          audio.connecttoFS(SD, fullPath.c_str());
+          seconds = 0;
+          isPlaying = true;
 
-        // Sprawdź, czy udało się otworzyć plik
-        if (entry)
-        {
-          // Zaktualizuj pełną ścieżkę do pliku
-          String fullPath = folderNameString + "/" + entry.name();
-
-          // Odtwórz tylko w przypadku, gdy to jest szukany plik
-          if (isAudioFile(entry.name()))
-          {
-            audio.connecttoFS(SD, fullPath.c_str());
-            seconds = 0;
-            isPlaying = true;
-            Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileFromBuffer); // Numeracja pliku
-            Serial.print("/");
-            Serial.print(filesCount); // Łączna liczba plików w folderze
-            Serial.print(" - ");
-            Serial.println(fileName);
-          }
+          Serial.print("Odtwarzanie pliku: ");
+          Serial.print(fileIndex + 1);
+          Serial.print("/");
+          Serial.print(filesCount);    // Łączna liczba plików w folderze
+          Serial.print(" - ");
+          Serial.println(fullPath);    // Pełna ścieżka pliku
         }
+        Serial.print("Numer indesku pliku po Previous File: ");
+        Serial.println(fileIndex);
+
+        fileFromBuffer = fileIndex + 1;
       }
 
       if (button2.isPressed()) // Użycie przycisku enkodera nr 2
@@ -1827,41 +1846,34 @@ void playFromSelectedFolder()
         fileSelection = false;
         isPlaying = false;
         audio.stopSong();
-        root.rewindDirectory(); // Przewiń katalog na początek
-        entry = root.openNextFile(); // Otwórz pierwszy plik w katalogu
-        fileIndex = currentSelection + 1;
-        fileFromBuffer = fileIndex;
-        // Przesuń się do wybranego pliku
-        for (int i = 1; i < fileIndex; i++)
-        {
-          entry = root.openNextFile();
-          if (!entry)
-          {
-              break; // Wyjdź, jeśli nie znaleziono pliku
-          }
-        }
+        
+        fileIndex = currentSelection;
+        fileFromBuffer = fileIndex + 1;
 
-        // Sprawdź, czy udało się otworzyć plik
-        if (entry)
+        // Sprawdź, czy indeks jest poprawny
+        if (fileIndex >= 0 && fileIndex < filesCount)
         {
-          // Zaktualizuj pełną ścieżkę do pliku
-          String fullPath = folderNameString + "/" + entry.name();
+          // Pobierz ścieżkę pliku z tablicy
+          String fullPath = files[fileIndex];
 
-          // Odtwórz tylko w przypadku, gdy to jest szukany plik
-          if (isAudioFile(entry.name()))
+          // Odtwórz tylko w przypadku, gdy to jest plik audio
+          if (isAudioFile(fullPath.c_str()))
           {
             audio.connecttoFS(SD, fullPath.c_str());
             seconds = 0;
             isPlaying = true;
+
+            // Wydrukuj informacje o odtwarzanym pliku
             Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileFromBuffer); // Numeracja pliku
+            Serial.print(fileFromBuffer); // Numeracja pliku (1-based)
             Serial.print("/");
             Serial.print(filesCount); // Łączna liczba plików w folderze
             Serial.print(" - ");
-            Serial.println(fileName);
+            Serial.println(fullPath); // Pełna ścieżka pliku
           }
-        } 
+        }
       }
+
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
       backDisplayPlayer();       // Obsługa bezczynności, przywrócenie wyświetlania danych audio
@@ -1922,6 +1934,13 @@ void displayFiles()
   {
     String fileName = files[i];  // files[] to tablica z nazwami plików
 
+    // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
+    int lastSlashIndex = fileName.lastIndexOf('/');
+    if (lastSlashIndex != -1)
+    {
+      fileName = fileName.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
+    }
+
     // Podświetlenie zaznaczonego pliku
     if (i == currentSelection)
     {
@@ -1934,7 +1953,7 @@ void displayFiles()
       u8g2.setDrawColor(1);  // Biały kolor tekstu na czarnym tle
     }
 
-    u8g2.drawStr(0, displayRow * 13 + 8, fileName.c_str());  // Wyświetlanie pełnej nazwy pliku
+    u8g2.drawStr(0, displayRow * 13 + 8, fileName.c_str());  // Wyświetlanie nazwy pliku bez ścieżki
 
     // Przesunięcie do kolejnego wiersza
     displayRow++;
@@ -1944,6 +1963,7 @@ void displayFiles()
   u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
+
 
 
 // Obsługa wyświetlacza dla odtwarzanego strumienia radia internetowego

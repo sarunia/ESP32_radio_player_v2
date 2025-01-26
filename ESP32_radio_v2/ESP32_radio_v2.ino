@@ -208,10 +208,10 @@ bool data_start_detected = false;           // Flaga dla sygnału wstępnego
 unsigned long pulse_start = 0;              // Czas początkowy impulsu
 unsigned long pulse_end = 0;                // Czas końcowy impulsu
 unsigned long pulse_duration = 0;           // Czas trwania impulsu
-unsigned long pulse_duration_9ms = 0;       // Tylko do analizy - Czas trwania impulsu
-unsigned long pulse_duration_4_5ms = 0;     // Tylko do analizy - Czas trwania impulsu
-unsigned long pulse_duration_690us = 0;     // Tylko do analizy - Czas trwania impulsu
-unsigned long pulse_duration_1690us = 0;    // Tylko do analizy - Czas trwania impulsu
+unsigned long pulse_duration_9ms = 0;       // Tylko do analizy - Czas trwania impulsu startowego 9ms 
+unsigned long pulse_duration_4_5ms = 0;     // Tylko do analizy - Czas trwania impulsu startowego 4,5ms
+unsigned long pulse_duration_560us = 0;     // Tylko do analizy - Czas trwania impulsu logicznego 0 (1,12ms - 0,56ms)
+unsigned long pulse_duration_1690us = 0;    // Tylko do analizy - Czas trwania impulsu logicznej 1 (2,25ms - 0,56ms)
 unsigned long pulse_start_low = 0;          // Czas początkowy impulsu
 unsigned long pulse_end_low = 0;            // Czas końcowy impulsu
 unsigned long pulse_duration_low = 0;       // Czas trwania impulsu
@@ -332,7 +332,7 @@ void IRAM_ATTR pulseISR()
       {
         ir_code = (ir_code << 1) | 0;  // Dodanie "0" do kodu IR
         bit_count++;
-        pulse_duration_690us = pulse_duration;
+        pulse_duration_560us = pulse_duration;
       }
 
       // Sprawdzenie, czy otrzymano pełny 32-bitowy kod IR
@@ -401,12 +401,15 @@ void processIRCode()
       Serial.print(pulse_duration_4_5ms);
       Serial.print("  1690us:");
       Serial.print(pulse_duration_1690us);
-      Serial.print("  690us:");
-      Serial.println(pulse_duration_690us);
+      Serial.print("  560us:");
+      Serial.println(pulse_duration_560us);
 
       attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
-      Serial.print("Kontrola stosu:");
-      Serial.println(uxTaskGetStackHighWaterMark(NULL));
+      Serial.print("Kontrola stosu: ");
+      //Serial.println(uxTaskGetStackHighWaterMark(NULL));
+      //Serial.println(" słów");
+      Serial.print(uxTaskGetStackHighWaterMark(NULL) * 4);  // Przeliczenie na bajty
+      Serial.println(" bajtów");
 
       // Rozpoznawanie przycisków na podstawie kodu
       if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
@@ -1242,6 +1245,7 @@ void audio_id3data(const char *info)
   // Znajdź pozycję w tekście
   int artistIndex1 = String(info).indexOf("Artist: ");
   int artistIndex2 = String(info).indexOf("ARTIST=");
+  int artistIndex3 = String(info).indexOf("Artist=");
 
   if (artistIndex1 != -1)
   {
@@ -1254,6 +1258,13 @@ void audio_id3data(const char *info)
   {
     // Przytnij tekst od pozycji "ARTIST=" do końca linii
     artistString = String(info).substring(artistIndex2 + 7, String(info).indexOf('\n', artistIndex2));
+    Serial.println("Znalazłem artystę: " + artistString);
+    id3tag = true;
+  }
+  if (artistIndex3 != -1)
+  {
+    // Przytnij tekst od pozycji "Artist=" do końca linii
+    artistString = String(info).substring(artistIndex3 + 7, String(info).indexOf('\n', artistIndex3));
     Serial.println("Znalazłem artystę: " + artistString);
     id3tag = true;
   }
@@ -1279,7 +1290,7 @@ void audio_id3data(const char *info)
   }
   if (titleIndex3 != -1)
   {
-    // Przytnij tekst od pozycji "TITLE=" do końca linii
+    // Przytnij tekst od pozycji "Title=" do końca linii
     titleString = String(info).substring(titleIndex3 + 6, String(info).indexOf('\n', titleIndex3));
     Serial.println("Znalazłem tytuł: " + titleString);
     id3tag = true;
@@ -1629,7 +1640,7 @@ void playFromSelectedFolder()
 
     fileNameString = fileName;
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(fileIndex); // Numer pliku
+    Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
     Serial.print("/");
     Serial.print(filesCount); // Liczba plików
     Serial.print(" - ");
@@ -1689,7 +1700,7 @@ void playFromSelectedFolder()
             isPlaying = true;
 
             Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileIndex + 1); // Wyświetl aktualny indeks pliku (1-based)
+            Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
             Serial.print("/");
             Serial.print(filesCount);    // Łączna liczba plików w folderze
             Serial.print(" - ");
@@ -1730,7 +1741,7 @@ void playFromSelectedFolder()
           isPlaying = true;
 
           Serial.print("Odtwarzanie pliku: ");
-          Serial.print(fileIndex + 1);
+          Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
           Serial.print("/");
           Serial.print(filesCount);    // Łączna liczba plików w folderze
           Serial.print(" - ");
@@ -1857,7 +1868,7 @@ void playFromSelectedFolder()
 
             // Wydrukuj informacje o odtwarzanym pliku
             Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileFromBuffer); // Numeracja pliku (1-based)
+            Serial.print(fileFromBuffer); 
             Serial.print("/");
             Serial.print(filesCount); // Łączna liczba plików w folderze
             Serial.print(" - ");

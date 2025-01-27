@@ -63,7 +63,7 @@
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
-int stationFromBuffer = 0;        // Numer stacji radiowej przechowywanej w buforze do przywrócenia na ekran po bezczynności
+int previous_station_nr = 0;      // Numer stacji radiowej przechowywanej w buforze do przywrócenia na ekran po bezczynności
 int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
 int previous_bank_nr = 0;         // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności
 int CLK_state1;                   // Aktualny stan CLK enkodera prawego
@@ -561,10 +561,10 @@ const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") =
   "\206\10\0\0\0\4\377\377\0";
 
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
-bool isAudioFile(const char *filename)
+bool isAudioFile(const char *fileNameString)
 {
   // Znajdź ostatnie wystąpienie kropki w nazwie pliku
-  const char *ext = strrchr(filename, '.');
+  const char *ext = strrchr(fileNameString, '.');
   
   // Jeśli nie znaleziono kropki lub nie ma rozszerzenia, zwróć false
   if (!ext)
@@ -660,7 +660,6 @@ void handleButtons()
       // Jeśli przycisk jest wciśnięty przez co najmniej 3 sekundy i akcja jeszcze nie była wykonana
       if (millis() - buttonPressTime2 >= 3000 && !action2Taken)
       {
-        previous_bank_nr = bank_nr;
         timeDisplay = false;
         bankChange = true;           // Ustawienie listy banków do przewijania i wyboru
 
@@ -906,17 +905,17 @@ void changeStation()
   stationString.remove(0);  // Usunięcie wszystkich znaków z obiektu stationString
 
   // Tworzymy nazwę pliku banku
-  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
+  String fileNameWithBank = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
 
   // Sprawdzamy, czy plik istnieje
-  if (!SD.exists(fileName))
+  if (!SD.exists(fileNameWithBank))
   {
     Serial.println("Błąd: Plik banku nie istnieje.");
     return;
   }
 
   // Otwieramy plik w trybie do odczytu
-  File bankFile = SD.open(fileName, FILE_READ);
+  File bankFile = SD.open(fileNameWithBank, FILE_READ);
   if (!bankFile)
   {
     Serial.println("Błąd: Nie można otworzyć pliku banku.");
@@ -974,7 +973,7 @@ void changeStation()
 
     // Połącz z daną stacją
     audio.connecttohost(stationUrl.c_str());
-    stationFromBuffer = station_nr;
+    previous_station_nr = station_nr;
     previous_bank_nr = bank_nr;
     saveStationOnSD();
   } 
@@ -988,6 +987,8 @@ void changeStation()
 // Funkcja do pobierania listy stacji radiowych z serwera i zapisania ich w wybranym banku na karcie SD
 void fetchStationsFromServer()
 {
+  previous_bank_nr = bank_nr;
+  
   // Utwórz obiekt klienta HTTP
   HTTPClient http;
 
@@ -1051,26 +1052,26 @@ void fetchStationsFromServer()
   }
 
   // Tworzenie nazwy pliku dla danego banku
-  String fileName = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
+  String fileNameWithBank = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
   
   // Sprawdzenie, czy plik istnieje
-  if (SD.exists(fileName))
+  if (SD.exists(fileNameWithBank))
   {
-    Serial.println("Plik banku " + fileName + " już istnieje.");
+    Serial.println("Plik banku " + fileNameWithBank + " już istnieje.");
   }
   else
   {
     // Próba utworzenia pliku, jeśli nie istnieje
-    File bankFile = SD.open(fileName, FILE_WRITE);
+    File bankFile = SD.open(fileNameWithBank, FILE_WRITE);
     
     if (bankFile)
     {
-      Serial.println("Utworzono plik banku: " + fileName);
+      Serial.println("Utworzono plik banku: " + fileNameWithBank);
       bankFile.close();  // Zamykanie pliku po utworzeniu
     }
     else
     {
-      Serial.println("Błąd: Nie można utworzyć pliku banku: " + fileName);
+      Serial.println("Błąd: Nie można utworzyć pliku banku: " + fileNameWithBank);
       return;  // Przerwij dalsze działanie, jeśli nie udało się utworzyć pliku
     }
   }
@@ -1094,16 +1095,16 @@ void fetchStationsFromServer()
     //Serial.println(payload);  // Wyświetlenie pobranych danych (payload)
 
     // Otwórz plik w trybie zapisu, aby zapisać payload
-    File bankFile = SD.open(fileName, FILE_WRITE);
+    File bankFile = SD.open(fileNameWithBank, FILE_WRITE);
     if (bankFile)
     {
       bankFile.println(payload);  // Zapisz dane do pliku
       bankFile.close();  // Zamknij plik po zapisaniu
-      Serial.println("Dane zapisane do pliku: " + fileName);
+      Serial.println("Dane zapisane do pliku: " + fileNameWithBank);
     }
     else
     {
-      Serial.println("Błąd: Nie można otworzyć pliku do zapisu: " + fileName);
+      Serial.println("Błąd: Nie można otworzyć pliku do zapisu: " + fileNameWithBank);
     }
 
     // Zapisz każdą niepustą stację do pamięci EEPROM z indeksem
@@ -1587,9 +1588,9 @@ void playFromSelectedFolder()
   // Zliczanie plików audio w folderze
   while (File entry = root.openNextFile())
   {
-    String fileName = entry.name();
+    fileNameString = entry.name();
     Serial.print("Plik: ");
-    Serial.print(fileName);
+    Serial.print(fileNameString);
     
     // Pobieranie rozmiaru pliku w bajtach i przeliczanie na megabajty
     float fileSizeMB = entry.size() / 1024.0 / 1024.0;
@@ -1600,17 +1601,17 @@ void playFromSelectedFolder()
     Serial.println(" MB");
 
     // Sprawdzanie, czy plik jest plikiem audio
-    if (isAudioFile(fileName.c_str()))
+    if (isAudioFile(fileNameString.c_str()))
     {
       // Zapisujemy pełną ścieżkę do pliku w tablicy `files[]`
-      files[filesCount] = folderNameString + "/" + fileName;
+      files[filesCount] = folderNameString + "/" + fileNameString;
       filesCount++;  // Zwiększ licznik plików audio
     }
     else
     {
       // Jeśli plik nie jest plikiem audio, wydrukuj pełną nazwę pliku wraz z rozszerzeniem
       Serial.print("Pominięty plik: ");
-      Serial.println(fileName);  // Drukowanie pełnej nazwy pliku z rozszerzeniem
+      Serial.println(fileNameString);  // Drukowanie pełnej nazwy pliku z rozszerzeniem
     }
 
     entry.close(); // Zamykaj każdy plik natychmiast po zakończeniu przetwarzania
@@ -1628,29 +1629,28 @@ void playFromSelectedFolder()
       break;  // Koniec plików w folderze
     }
 
-    String fileName = entry.name();
+    fileNameString = entry.name();
 
     // Pomijaj pliki, które nie są w formacie audio
-    if (!isAudioFile(fileName.c_str()))
+    if (!isAudioFile(fileNameString.c_str()))
     {
-      Serial.println("Pominięto plik: " + fileName);
+      Serial.println("Pominięto plik: " + fileNameString);
       entry.close(); // Zamknij pominięty plik
       continue;
     }
 
-    fileNameString = fileName;
     Serial.print("Odtwarzanie pliku: ");
     Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
     Serial.print("/");
     Serial.print(filesCount); // Liczba plików
     Serial.print(" - ");
-    Serial.println(fileName);
+    Serial.println(fileNameString);
 
     // Pełna ścieżka do pliku
-    String fullPath = folderNameString + "/" + fileName;
+    String fullPath = folderNameString + "/" + fileNameString;
     Serial.println(fullPath);
 
-    // Odtwarzaj plik
+    // Odtwarzaj pierwszy plik z wybranego katalogu
     audio.connecttoFS(SD, fullPath.c_str());
     seconds = 0;
     isPlaying = true;
@@ -1689,23 +1689,7 @@ void playFromSelectedFolder()
         }
         else
         {
-          // Pobierz pełną ścieżkę następnego pliku
-          String fullPath = files[fileIndex];
-
-          // Sprawdź, czy plik to audio
-          if (isAudioFile(fullPath.c_str()))
-          {
-            audio.connecttoFS(SD, fullPath.c_str());
-            seconds = 0;
-            isPlaying = true;
-
-            Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
-            Serial.print("/");
-            Serial.print(filesCount);    // Łączna liczba plików w folderze
-            Serial.print(" - ");
-            Serial.println(fullPath);    // Pełna ścieżka pliku
-          }
+          playFile();
         }
         Serial.print("Numer indesku pliku po Next File: ");
         Serial.println(fileIndex);
@@ -1730,23 +1714,7 @@ void playFromSelectedFolder()
           fileIndex = 0;
         }
         fileFromBuffer = fileIndex;
-        // Pobierz pełną ścieżkę poprzedniego pliku
-        String fullPath = files[fileIndex];
-
-        // Sprawdź, czy plik to audio
-        if (isAudioFile(fullPath.c_str()))
-        {
-          audio.connecttoFS(SD, fullPath.c_str());
-          seconds = 0;
-          isPlaying = true;
-
-          Serial.print("Odtwarzanie pliku: ");
-          Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
-          Serial.print("/");
-          Serial.print(filesCount);    // Łączna liczba plików w folderze
-          Serial.print(" - ");
-          Serial.println(fullPath);    // Pełna ścieżka pliku
-        }
+        playFile();
         Serial.print("Numer indesku pliku po Previous File: ");
         Serial.println(fileIndex);
 
@@ -1856,24 +1824,7 @@ void playFromSelectedFolder()
         // Sprawdź, czy indeks jest poprawny
         if (fileIndex >= 0 && fileIndex < filesCount)
         {
-          // Pobierz ścieżkę pliku z tablicy
-          String fullPath = files[fileIndex];
-
-          // Odtwórz tylko w przypadku, gdy to jest plik audio
-          if (isAudioFile(fullPath.c_str()))
-          {
-            audio.connecttoFS(SD, fullPath.c_str());
-            seconds = 0;
-            isPlaying = true;
-
-            // Wydrukuj informacje o odtwarzanym pliku
-            Serial.print("Odtwarzanie pliku: ");
-            Serial.print(fileFromBuffer); 
-            Serial.print("/");
-            Serial.print(filesCount); // Łączna liczba plików w folderze
-            Serial.print(" - ");
-            Serial.println(fullPath); // Pełna ścieżka pliku
-          }
+          playFile();
         }
       }
 
@@ -1918,6 +1869,32 @@ void playFromSelectedFolder()
   root.close();
 }
 
+void playFile()
+{
+  // Pobierz ścieżkę pliku z tablicy
+  String fullPath = files[fileIndex];
+
+  // Odtwórz tylko w przypadku, gdy to jest plik audio
+  if (isAudioFile(fullPath.c_str()))
+  {
+    audio.connecttoFS(SD, fullPath.c_str());
+    seconds = 0;
+    isPlaying = true;
+    Serial.print("Odtwarzanie pliku: ");
+    Serial.print(fileFromBuffer); 
+    Serial.print("/");
+    Serial.print(filesCount); // Łączna liczba plików w folderze
+    Serial.print(" - ");
+    Serial.println(fullPath); // Pełna ścieżka pliku
+    // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
+    int lastSlashIndex = fullPath.lastIndexOf('/');
+    if (lastSlashIndex != -1)
+    {
+      fileNameString = fullPath.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
+    }
+  }
+}
+
 // Wyświetlanie przewijalnej listy plików z podświetleniem wybranego pliku
 void displayFiles()
 {
@@ -1935,13 +1912,13 @@ void displayFiles()
   // Wyświetlanie plików zaczynając od pierwszej widocznej linii
   for (int i = firstVisibleLine; i < min(firstVisibleLine + 4, filesCount); i++)
   {
-    String fileName = files[i];  // files[] to tablica z nazwami plików
+    String fileNameDisplay = files[i];  // files[] to tablica z nazwami plików
 
     // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
-    int lastSlashIndex = fileName.lastIndexOf('/');
+    int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
     if (lastSlashIndex != -1)
     {
-      fileName = fileName.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
+      fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
     }
 
     // Podświetlenie zaznaczonego pliku
@@ -1956,7 +1933,7 @@ void displayFiles()
       u8g2.setDrawColor(1);  // Biały kolor tekstu na czarnym tle
     }
 
-    u8g2.drawStr(0, displayRow * 13 + 8, fileName.c_str());  // Wyświetlanie nazwy pliku bez ścieżki
+    u8g2.drawStr(0, displayRow * 13 + 8, fileNameDisplay.c_str());  // Wyświetlanie nazwy pliku bez ścieżki
 
     // Przesunięcie do kolejnego wiersza
     displayRow++;
@@ -2907,6 +2884,7 @@ void setup()
 
   // Odczytaj numer banku i numer stacji z karty SD
   readStationFromSD();
+  previous_bank_nr = bank_nr;
 
   // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią
   if (wifiManager.autoConnect("ESP Internet Radio"))
@@ -3060,6 +3038,7 @@ void loop()
     menuEnable = false;
     bankChange = false;
     currentOption = INTERNET_RADIO;
+    bank_nr = previous_bank_nr;
     displayRadio();
   }
   
@@ -3162,6 +3141,7 @@ void loop()
   if (IRdownArrow == true)  // Dolny przycisk kierunkowy w pilocie
   {
     IRdownArrow = false;
+    bank_nr = previous_bank_nr;
     timeDisplay = false;
     displayActive = true;
     displayStartTime = millis();
@@ -3180,6 +3160,7 @@ void loop()
   if (IRupArrow == true)  // Górny przycisk kierunkowy w pilocie
   {
     IRupArrow = false;
+    bank_nr = previous_bank_nr;
     timeDisplay = false;
     displayActive = true;
     displayStartTime = millis();

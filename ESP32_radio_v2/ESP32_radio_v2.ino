@@ -1796,8 +1796,8 @@ void playFromSelectedFolder()
       {
         IRokButton = false;
         folderSelection = false;
-        currentSelection = 0;
-        firstVisibleLine = 1;
+        //currentSelection = 0;
+        //firstVisibleLine = 1;
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;

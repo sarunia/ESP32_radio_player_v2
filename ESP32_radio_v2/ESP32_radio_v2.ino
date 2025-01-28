@@ -74,9 +74,9 @@ int stationsCount = 0;            // Aktualna liczba przechowywanych stacji w ta
 int folderCount = 0;              // Licznik folderów na karcie SD
 int filesCount = 0;               // Licznik plików w danym folderze na karcie SD
 int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze wskazanego folderu
-int fileFromBuffer = 0;           // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
+int previous_fileIndex = 0;       // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
-int folderFromBuffer = 0;         // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
+int previous_folderIndex = 0;     // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 4;          // Maksymalna liczba widocznych linii na ekranie OLED
@@ -117,13 +117,14 @@ unsigned long debounceDelay = 300;        // Czas trwania debouncingu w miliseku
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
+unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
+unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
 
-
-String directories[MAX_DIRECTORIES];      // Tablica z indeksami i ścieżkami katalogów
+String directories[MAX_DIRECTORIES];      // Tablica do przechowywania nazw folderów
 String files[MAX_FILES];                  // Tablica do przechowywania nazw plików
 String currentDirectory = "/";            // Ścieżka bieżącego katalogu
 String stationName;                       // Nazwa aktualnie wybranej stacji radiowej
-String stationString;                     // Dodatkowe dane stacji radiowej (jeśli istnieją)
+String stationInfo;                       // Dodatkowe dane info stacji radiowej
 String bitrateString;                     // Zmienna przechowująca informację o bitrate
 String sampleRateString;                  // Zmienna przechowująca informację o sample rate
 String bitsPerSampleString;               // Zmienna przechowująca informację o liczbie bitów na próbkę
@@ -405,11 +406,25 @@ void processIRCode()
       Serial.println(pulse_duration_560us);
 
       attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
+
       Serial.print("Kontrola stosu: ");
-      //Serial.println(uxTaskGetStackHighWaterMark(NULL));
-      //Serial.println(" słów");
-      Serial.print(uxTaskGetStackHighWaterMark(NULL) * 4);  // Przeliczenie na bajty
-      Serial.println(" bajtów");
+
+      // Pobranie minimalnej liczby wolnych słów stosu (każde słowo to 4 bajty)
+      uint32_t stackSizeInBytes = uxTaskGetStackHighWaterMark(NULL) * 4;
+
+      // Sprawdzenie, czy liczba bajtów jest większa niż 1024, aby przeliczyć na kilobajty z dokładnością do 2 miejsc po przecinku
+      if (stackSizeInBytes > 1024)
+      {
+        float stackSizeInKB = stackSizeInBytes / 1024.0;  // Przeliczenie na kilobajty (float dla precyzji)
+        Serial.print(stackSizeInKB, 2);  // Wydruk z dokładnością do 2 miejsc po przecinku
+        Serial.println(" KB");
+      }
+      else
+      {
+        Serial.print(stackSizeInBytes);  // Wydruk w bajtach
+        Serial.println(" bajtów");
+      }
+
 
       // Rozpoznawanie przycisków na podstawie kodu
       if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
@@ -902,7 +917,7 @@ void saveStationToEEPROM(const char* station)
 void changeStation()
 {
   mp3 = flac = aac = false;
-  stationString.remove(0);  // Usunięcie wszystkich znaków z obiektu stationString
+  stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
   // Tworzymy nazwę pliku banku
   String fileNameWithBank = String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
@@ -1321,7 +1336,7 @@ void audio_showstreamtitle(const char *info)
 {
   Serial.print("streamtitle ");
   Serial.println(info);
-  stationString = String(info);
+  stationInfo = String(info);
   if (currentOption == INTERNET_RADIO)
   {
     displayRadio();
@@ -1640,7 +1655,7 @@ void playFromSelectedFolder()
     }
 
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(fileIndex + 1); // Numer pliku +1 żeby nie liczyć od zera
+    Serial.print(fileIndex + 1);   // Liczymy od 1, nie od 0 na serialu
     Serial.print("/");
     Serial.print(filesCount); // Liczba plików
     Serial.print(" - ");
@@ -1654,8 +1669,8 @@ void playFromSelectedFolder()
     audio.connecttoFS(SD, fullPath.c_str());
     seconds = 0;
     isPlaying = true;
-    fileFromBuffer = fileIndex + 1;
-    folderFromBuffer = folderIndex + 1;
+    previous_fileIndex = fileIndex;
+    previous_folderIndex = folderIndex;
 
     entry.close();  // Zamykaj plik po odczytaniu
 
@@ -1675,12 +1690,7 @@ void playFromSelectedFolder()
         playNextFile = false;
         fileEnd = false;
         audio.stopSong();
-        
-        Serial.print("Numer indesku pliku przed Next File: ");
-        Serial.println(fileIndex);
-        // Przejdź do następnego pliku
         fileIndex++;
-        
         if (fileIndex >= filesCount)  // Upewniamy się, że indeks nie przekroczy liczby plików
         {
           Serial.println("To jest ostatni plik w folderze");
@@ -1691,10 +1701,7 @@ void playFromSelectedFolder()
         {
           playFile();
         }
-        Serial.print("Numer indesku pliku po Next File: ");
-        Serial.println(fileIndex);
-
-        fileFromBuffer = fileIndex + 1;
+        previous_fileIndex = fileIndex;
       }
 
       // Jeśli wybrany poprzedni plik
@@ -1702,23 +1709,15 @@ void playFromSelectedFolder()
       {
         IRleftArrow = false;
         playPreviousFile = false;
-        //isPlaying = false;
         audio.stopSong();
-        Serial.print("Numer indesku pliku przed Previous File: ");
-        Serial.println(fileIndex);
-        // Przejdź do poprzedniego pliku
         fileIndex--;
         if (fileIndex < 0)
         {
           Serial.println("To jest pierwszy plik w folderze");
           fileIndex = 0;
         }
-        fileFromBuffer = fileIndex;
         playFile();
-        Serial.print("Numer indesku pliku po Previous File: ");
-        Serial.println(fileIndex);
-
-        fileFromBuffer = fileIndex + 1;
+        previous_fileIndex = fileIndex;
       }
 
       if (button2.isPressed()) // Użycie przycisku enkodera nr 2
@@ -1794,10 +1793,10 @@ void playFromSelectedFolder()
 
       if ((IRokButton == true) && (folderSelection == true))  // Zatwierdzenie startu odtwarzania z wybranego folderu
       {
+        currentSelection = 0;
+        firstVisibleLine = 1;
         IRokButton = false;
         folderSelection = false;
-        //currentSelection = 0;
-        //firstVisibleLine = 1;
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
@@ -1819,7 +1818,7 @@ void playFromSelectedFolder()
         audio.stopSong();
         
         fileIndex = currentSelection;
-        fileFromBuffer = fileIndex + 1;
+        previous_fileIndex = fileIndex;
 
         // Sprawdź, czy indeks jest poprawny
         if (fileIndex >= 0 && fileIndex < filesCount)
@@ -1881,11 +1880,12 @@ void playFile()
     seconds = 0;
     isPlaying = true;
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(fileFromBuffer); 
+    Serial.print(previous_fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
     Serial.print("/");
     Serial.print(filesCount); // Łączna liczba plików w folderze
     Serial.print(" - ");
     Serial.println(fullPath); // Pełna ścieżka pliku
+
     // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
     int lastSlashIndex = fullPath.lastIndexOf('/');
     if (lastSlashIndex != -1)
@@ -1945,7 +1945,6 @@ void displayFiles()
 }
 
 
-
 // Obsługa wyświetlacza dla odtwarzanego strumienia radia internetowego
 void displayRadio()
 {
@@ -1961,15 +1960,15 @@ void displayRadio()
   // Podziel tekst na wyrazy
   String word;
   int wordStart = 0;
-  processText(stationString);  // Podstawienie polskich znaków diakrytycznych
+  processText(stationInfo);  // Podstawienie polskich znaków diakrytycznych
 
-  for (int i = 0; i <= stationString.length(); i++)
+  for (int i = 0; i <= stationInfo.length(); i++)
   {
     // Sprawdź, czy dotarliśmy do końca słowa lub do końca tekstu
-    if (i == stationString.length() || stationString.charAt(i) == ' ')
+    if (i == stationInfo.length() || stationInfo.charAt(i) == ' ')
     {
       // Pobierz słowo
-      String word = stationString.substring(wordStart, i);
+      String word = stationInfo.substring(wordStart, i);
       wordStart = i + 1;
 
       // Sprawdź, czy dodanie słowa do bieżącej linii nie przekroczy maxLineLength
@@ -2015,11 +2014,11 @@ void displayPlayer()
     u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
     u8g2.print("ODTWARZANIE PLIKU ");
-    u8g2.print(fileFromBuffer);
+    u8g2.print(previous_fileIndex + 1); // Liczymy od 1, nie od 0 na wyświetlaczu
     u8g2.print("/");
     u8g2.print(filesCount);
     u8g2.print(" FOLDER ");
-    u8g2.print(folderFromBuffer);
+    u8g2.print(previous_folderIndex + 1); // Liczymy od 1, nie od 0 na wyświetlaczu
     u8g2.print("/");
     u8g2.print(folderCount);
 
@@ -2098,11 +2097,11 @@ void displayPlayer()
     u8g2.setFont(spleen6x12PL);
     u8g2.setCursor(0, 10);
     u8g2.print("ODTWARZANIE PLIKU ");
-    u8g2.print(fileFromBuffer);
+    u8g2.print(previous_fileIndex + 1);  // Liczymy od 1, nie od 0 na wyświetlaczu
     u8g2.print("/");
     u8g2.print(filesCount);
     u8g2.print(" FOLDER ");
-    u8g2.print(folderFromBuffer);
+    u8g2.print(previous_folderIndex + 1);  // Liczymy od 1, nie od 0 na wyświetlaczu
     u8g2.print("/");
     u8g2.print(folderCount);
     u8g2.drawStr(0, 21, "Brak danych ID3 utworu, nazwa pliku:");
@@ -2139,7 +2138,8 @@ void backDisplayPlayer()
 {
   if (displayActive && (millis() - displayStartTime >= displayTimeout))
   {
-    folderFromBuffer = folderIndex + 1;
+    folderIndex = previous_folderIndex;
+    fileIndex = previous_fileIndex;
     displayPlayer();
     displayActive = false;
     timeDisplay = true;
@@ -2834,6 +2834,26 @@ void setup()
 
   // Inicjalizuj komunikację szeregową
   Serial.begin(115200);
+
+  // Rezerwuje pamięć PSRAM dla bufora o określonej długości
+  // 'ps_malloc' alokuje pamięć w PSRAM (jeśli dostępna) zamiast standardowej RAM
+  // 'PSRAM_lenght' to liczba bajtów, jaką chcemy zaalokować
+  psramData = (unsigned char *)ps_malloc(PSRAM_lenght * sizeof(unsigned char));
+
+  // Sprawdzamy, czy pamięć PSRAM została poprawnie zainicjowana
+  if (psramInit())
+  {
+    Serial.println("Pamięć PSRAM zainicjowana poprawnie");
+    Serial.print("Dostepna pamięć PSRAM:");
+    Serial.println(ESP.getPsramSize());
+    Serial.print("Wolna pamięć PSRAM:");
+    Serial.println(ESP.getFreePsram());
+  }
+  else
+  {
+    Serial.println("Błąd pamięci PSRAM");
+  }
+  
 
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD
   customSPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);  // Inicjalizacja HSPI dla SD

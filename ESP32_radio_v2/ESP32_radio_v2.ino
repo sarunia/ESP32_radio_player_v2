@@ -1795,7 +1795,7 @@ void playFromSelectedFolder()
       if ((IRokButton == true) && (folderSelection == true))  // Zatwierdzenie startu odtwarzania z wybranego folderu
       {
         currentSelection = 0;
-        firstVisibleLine = 1;
+        firstVisibleLine = 0;
         IRokButton = false;
         folderSelection = false;
         audio.stopSong();
@@ -2141,6 +2141,8 @@ void backDisplayPlayer()
   {
     folderIndex = previous_folderIndex;
     fileIndex = previous_fileIndex;
+    currentSelection = fileIndex;
+    firstVisibleLine = 0;
     displayPlayer();
     displayActive = false;
     timeDisplay = true;

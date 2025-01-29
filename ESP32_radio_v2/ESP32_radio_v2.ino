@@ -152,6 +152,7 @@ SPIClass customSPI = SPIClass(HSPI);  // Użycie HSPI dla karty SD
 ezButton button1(SW_PIN1);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 4
 ezButton button2(SW_PIN2);                // Utworzenie obiektu przycisku z enkodera 1 ezButton, podłączonego do pinu 1
 Audio audio;                              // Obiekt do obsługi funkcji związanych z dźwiękiem i audio
+AudioBuffer audioBuffer;
 Ticker timer1;                            // Timer do updateTimer co 1s
 Ticker timer2;                            // Timer do getWeatherData co 60s
 Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii co 10s
@@ -2865,6 +2866,8 @@ void setup()
     return;
   }
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
+
+  audioBuffer.changeMaxBlockSize(16384);  // Wywołanie metody na obiekcie audioBuffer // is default 1600 for mp3 and aac, set 16384 for FLAC 
 
   // Sprawdzanie pojemności i zajęctości karty SD
   unsigned long totalSpace = SD.cardSize() / (1024 * 1024);  // Całkowita pojemność karty w MB

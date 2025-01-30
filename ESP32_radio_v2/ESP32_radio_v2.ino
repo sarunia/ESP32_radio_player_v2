@@ -2798,6 +2798,58 @@ void volumeSetFromRemote()
   }
 }
 
+// Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
+void SDinit()
+{
+  if (!SD.begin(SD_CS, customSPI))
+  {
+    Serial.println("Błąd inicjalizacji karty SD!");
+    return;
+  }
+  Serial.println("Karta SD zainicjalizowana pomyślnie.");
+
+  // Sprawdzenie i ewentualne utworzenie plików
+  if (!SD.exists("/station_nr.txt"))
+  {
+    // Plik station_nr.txt nie istnieje, tworzymy go i zapisujemy wartość 9
+    File stationFile = SD.open("/station_nr.txt", FILE_WRITE);
+    if (stationFile)
+    {
+      stationFile.println("9");
+      stationFile.close();
+      Serial.println("Plik station_nr.txt został utworzony.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia pliku station_nr.txt!");
+    }
+  }
+  else
+  {
+    Serial.println("Plik station_nr.txt już istnieje.");
+  }
+
+  if (!SD.exists("/bank_nr.txt"))
+  {
+    // Plik bank_nr.txt nie istnieje, tworzymy go i zapisujemy wartość 1
+    File bankFile = SD.open("/bank_nr.txt", FILE_WRITE);
+    if (bankFile)
+    {
+      bankFile.println("1");
+      bankFile.close();
+      Serial.println("Plik bank_nr.txt został utworzony.");
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia pliku bank_nr.txt!");
+    }
+  }
+  else
+  {
+    Serial.println("Plik bank_nr.txt już istnieje.");
+  }
+}
+
 
 void setup()
 {
@@ -2904,12 +2956,15 @@ void setup()
 
   button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
 
+  // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
+  SDinit();
+
   // Inicjalizacja WiFiManagera
   WiFiManager wifiManager;
 
   // Odczytaj numer banku i numer stacji z karty SD
   readStationFromSD();
-  previous_bank_nr = bank_nr;
+  previous_bank_nr = bank_nr; // Wyrównanie numerów banku przy starcie
 
   // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią
   if (wifiManager.autoConnect("ESP Internet Radio"))

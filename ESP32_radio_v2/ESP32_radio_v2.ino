@@ -706,6 +706,7 @@ void getWeatherData()
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
   String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
 
+
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
   int httpCode = http.GET();  // Wysłanie żądanie GET do serwera, aby pobrać dane pogodowe
@@ -1536,6 +1537,8 @@ void scrollUp()
   
   Serial.print("Scroll Up: CurrentSelection = ");
   Serial.println(currentSelection);
+  Serial.print("Scroll Down: firstVisibleLine = ");
+  Serial.println(firstVisibleLine);
 }
 
 // Funkcja do przewijania w dół
@@ -1558,6 +1561,8 @@ void scrollDown()
 
   Serial.print("Scroll Down: CurrentSelection = ");
   Serial.println(currentSelection);
+  Serial.print("Scroll Down: firstVisibleLine = ");
+  Serial.println(firstVisibleLine);
 }
 
 // Funkcja zwracająca maksymalny możliwy wybór w zależności od opcji
@@ -1881,7 +1886,7 @@ void playFile()
     seconds = 0;
     isPlaying = true;
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(previous_fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
+    Serial.print(fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
     Serial.print("/");
     Serial.print(filesCount); // Łączna liczba plików w folderze
     Serial.print(" - ");
@@ -2142,7 +2147,7 @@ void backDisplayPlayer()
     folderIndex = previous_folderIndex;
     fileIndex = previous_fileIndex;
     currentSelection = fileIndex;
-    firstVisibleLine = 0;
+    firstVisibleLine = currentSelection;
     displayPlayer();
     displayActive = false;
     timeDisplay = true;
@@ -2893,7 +2898,7 @@ void setup()
   // Rezerwuje pamięć PSRAM dla bufora o określonej długości
   // 'ps_malloc' alokuje pamięć w PSRAM (jeśli dostępna) zamiast standardowej RAM
   // 'PSRAM_lenght' to liczba bajtów, jaką chcemy zaalokować
-  psramData = (unsigned char *)ps_malloc(PSRAM_lenght * sizeof(unsigned char));
+  /*psramData = (unsigned char *)ps_malloc(PSRAM_lenght * sizeof(unsigned char));
 
   // Sprawdzamy, czy pamięć PSRAM została poprawnie zainicjowana
   if (psramInit())
@@ -2907,7 +2912,7 @@ void setup()
   else
   {
     Serial.println("Błąd pamięci PSRAM");
-  }
+  }*/
   
 
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD

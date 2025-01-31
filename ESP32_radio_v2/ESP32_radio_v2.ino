@@ -706,7 +706,6 @@ void getWeatherData()
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
   String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
 
-
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
   int httpCode = http.GET();  // Wysłanie żądanie GET do serwera, aby pobrać dane pogodowe
@@ -1688,6 +1687,7 @@ void playFromSelectedFolder()
       button2.loop();
       handleJoystick();
       processIRCode();
+      vTaskDelay(1); 
 
       // Jeśli wybrany następny plik lub jeśli aktualnie odtwarzany plik skończył sie samoczynnie
       if ((playNextFile == true) || (IRrightArrow == true) || (fileEnd == true))
@@ -1903,13 +1903,13 @@ void playFile()
 
 // Wyświetlanie przewijalnej listy plików z podświetleniem wybranego pliku
 void displayFiles()
-{
-  String text = "   ODTWARZACZ PLIKÓW - LISTA PLIKÓW    ";
+{ 
+  String text = "ODTWARZACZ PLIKÓW - LISTA PLIKÓW";
   processText(text);  // Zamiana polskich znaków
   u8g2.clearBuffer();
   u8g2.setFont(spleen6x12PL);
   u8g2.setCursor(0, 10);
-  u8g2.print(text);
+  u8g2.print(text + " " + (fileIndex + 1) + "/" + filesCount);
   u8g2.setCursor(0, 21);
   u8g2.print(currentDirectory);  // Wyświetlenie bieżącego katalogu
 
@@ -2271,7 +2271,7 @@ void scrollDownFiles()
   fileIndex++;
   if (fileIndex > filesCount)
   {
-    fileIndex = 1;
+    fileIndex = 0;
   }
   Serial.print("Numer pliku do przodu: ");
   Serial.println(fileIndex);
@@ -3006,6 +3006,7 @@ void loop()
   handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
   processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
   volumeSetFromRemote();   // Obsługa regulacji głośności z pilota zdalnego sterowania
+  vTaskDelay(1);           // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
   CLK_state1 = digitalRead(CLK_PIN1);  // Odczytanie aktualnego stanu pinu CLK enkodera 1
   if (CLK_state1 != prev_CLK_state1 && CLK_state1 == HIGH)  // Sprawdzenie, czy stan CLK zmienił się na wysoki

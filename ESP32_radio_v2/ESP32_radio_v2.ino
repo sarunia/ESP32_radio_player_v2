@@ -2813,6 +2813,23 @@ void SDinit()
   }
   Serial.println("Karta SD zainicjalizowana pomyślnie.");
 
+  // Sprawdzanie pojemności i zajęctości karty SD
+  unsigned long totalSpace = SD.cardSize() / (1024 * 1024);  // Całkowita pojemność karty w MB
+  unsigned long usedSpace = SD.usedBytes() / (1024 * 1024);   // Użyta przestrzeń w MB
+  unsigned long freeSpace = totalSpace - usedSpace;  // Wolna przestrzeń w MB
+
+  Serial.print("Całkowita pojemność karty SD: ");
+  Serial.print(totalSpace);
+  Serial.println(" MB");
+
+  Serial.print("Użyte miejsce: ");
+  Serial.print(usedSpace);
+  Serial.println(" MB");
+
+  Serial.print("Wolne miejsce: ");
+  Serial.print(freeSpace);
+  Serial.println(" MB");
+
   // Sprawdzenie i ewentualne utworzenie plików
   if (!SD.exists("/station_nr.txt"))
   {
@@ -2918,32 +2935,10 @@ void setup()
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD
   customSPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);  // Inicjalizacja HSPI dla SD
 
-  // Inicjalizacja karty SD
-  if (!SD.begin(SD_CS, customSPI))
-  {
-    Serial.println("Błąd inicjalizacji karty SD!");
-    return;
-  }
-  Serial.println("Karta SD zainicjalizowana pomyślnie.");
+  // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
+  SDinit();
 
   audioBuffer.changeMaxBlockSize(16384);  // Wywołanie metody na obiekcie audioBuffer // is default 1600 for mp3 and aac, set 16384 for FLAC 
-
-  // Sprawdzanie pojemności i zajęctości karty SD
-  unsigned long totalSpace = SD.cardSize() / (1024 * 1024);  // Całkowita pojemność karty w MB
-  unsigned long usedSpace = SD.usedBytes() / (1024 * 1024);   // Użyta przestrzeń w MB
-  unsigned long freeSpace = totalSpace - usedSpace;  // Wolna przestrzeń w MB
-
-  Serial.print("Całkowita pojemność karty SD: ");
-  Serial.print(totalSpace);
-  Serial.println(" MB");
-
-  Serial.print("Użyte miejsce: ");
-  Serial.print(usedSpace);
-  Serial.println(" MB");
-
-  Serial.print("Wolne miejsce: ");
-  Serial.print(freeSpace);
-  Serial.println(" MB");
 
   Serial.print("Numer seryjny ESP:");
   Serial.println(ESP.getEfuseMac()); // Wyświetla unikalny adres MAC ESP32
@@ -2961,8 +2956,7 @@ void setup()
 
   button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
 
-  // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
-  SDinit();
+
 
   // Inicjalizacja WiFiManagera
   WiFiManager wifiManager;

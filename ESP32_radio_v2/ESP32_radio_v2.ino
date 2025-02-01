@@ -89,6 +89,7 @@ bool isPlaying = false;           // Flaga określająca, czy obecnie trwa odtwa
 bool mp3 = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie MP3
 bool flac = false;                // Flaga określająca, czy aktualny plik audio jest w formacie FLAC
 bool aac = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie AAC
+bool vorbis = false;              // Flaga określająca, czy aktualny plik audio jest w formacie VORBIS
 bool id3tag = false;              // Flaga określająca, czy plik audio posiada dane ID3
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
 bool listedStations = false;      // Flaga określająca, czy na ekranie jest pokazana lista stacji do wyboru
@@ -917,7 +918,7 @@ void saveStationToEEPROM(const char* station)
 // Funkcja odpowiedzialna za zmianę aktualnie wybranej stacji radiowej.
 void changeStation()
 {
-  mp3 = flac = aac = false;
+  mp3 = flac = aac = vorbis = false;
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
   // Tworzymy nazwę pliku banku
@@ -1237,6 +1238,7 @@ void audio_info(const char *info)
     mp3 = true;
     flac = false;
     aac = false;
+    vorbis = false;
   }
 
   if (String(info).indexOf("FLACDecoder") != -1)
@@ -1244,11 +1246,21 @@ void audio_info(const char *info)
     flac = true;
     mp3 = false;
     aac = false;
+    vorbis = false;
   }
 
   if (String(info).indexOf("AACDecoder") != -1)
   {
     aac = true;
+    flac = false;
+    mp3 = false;
+    vorbis = false;
+  }
+
+  if (String(info).indexOf("VORBISDecoder") != -1)
+  {
+    vorbis = true;
+    aac = false;
     flac = false;
     mp3 = false;
   }
@@ -2283,12 +2295,12 @@ void scrollDownFiles()
 // Funkcja do wyświetlania folderów na ekranie OLED z uwzględnieniem zaznaczenia
 void displayFolders()
 {
-  String text = "   ODTWARZACZ PLIKÓW - LISTA KATALOGÓW    ";
+  String text = "ODTWARZACZ PLIKÓW - LISTA KATALOGÓW";
   processText(text);  // Podstawienie polskich znaków diakrytycznych
   u8g2.clearBuffer();
   u8g2.setFont(spleen6x12PL);
   u8g2.setCursor(0, 10);
-  u8g2.print(text);
+  u8g2.print(text + " " + (folderIndex + 1) + "/" + folderCount);
   u8g2.setCursor(0, 21);
   u8g2.print(currentDirectory);  // Wyświetl bieżący katalog
 
@@ -2418,6 +2430,11 @@ void updateTimer()
         u8g2.drawStr(170, 51, "AAC");
         //Serial.println("Gram AAC");
       }
+      if (vorbis == true)
+      {
+        u8g2.drawStr(170, 51, "VBR");
+        //Serial.println("Gram VBR");
+      }
     }
 
     if ((currentOption == PLAY_FILES) && (bitratePresent == true))
@@ -2429,7 +2446,7 @@ void updateTimer()
       u8g2.sendBuffer();
     }
 
-    if ((currentOption == INTERNET_RADIO) && ((mp3 == true) || (flac == true) || (aac == true)))
+    if ((currentOption == INTERNET_RADIO) && ((mp3 == true) || (flac == true) || (aac == true) || (vorbis == true)))
     {
       // Struktura przechowująca informacje o czasie
       struct tm timeinfo;
@@ -2596,7 +2613,7 @@ void handleJoystick()
     Serial.print(xValue);
     Serial.println(" - Joystick w lewo");
     joystickMovedLeft = true; // Ustawienie flagi dla lewego ruchu
-    mp3 = aac = flac = false;
+    mp3 = aac = flac = vorbis = false;
     if (currentOption == INTERNET_RADIO)
     {
       station_nr--;
@@ -2628,7 +2645,7 @@ void handleJoystick()
     Serial.print(xValue);
     Serial.println(" - Joystick w prawo");
     joystickMovedRight = true; // Ustawienie flagi dla prawego ruchu
-    mp3 = aac = flac = false;
+    mp3 = aac = flac = vorbis = false;
     if (currentOption == INTERNET_RADIO)
     {
       station_nr++;

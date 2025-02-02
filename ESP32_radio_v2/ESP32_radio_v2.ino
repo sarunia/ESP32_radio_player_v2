@@ -108,6 +108,7 @@ bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterow
 bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
 bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
 bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MODE"
+bool IRhomeButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "HOME"
 bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK"
 bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL+
 bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
@@ -175,8 +176,6 @@ enum MenuOption
 };
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 
-
-
 /*===============    Definicja portów i deklaracje zmiennych do obsługi joysticka    =============*/
 const int xPin = 16;  // Oś X (ADC)
 const int yPin = 17;  // Oś Y (ADC)
@@ -196,6 +195,7 @@ const int neutralPosition = 2925; // Neutralna pozycja
 bool joystickMovedLeft = false;
 bool joystickMovedRight = false;
 bool joystickPressed = false;
+bool joystickSwitch = false;
 
 
 
@@ -448,6 +448,10 @@ void processIRCode()
       else if (ir_code == rcCmdMode)         // Przycisk MODE
       {  
           IRmenuButton = true;
+      }
+      else if (ir_code == rcCmdHome)         // Przycisk MOME
+      {  
+          IRhomeButton = true;
       }
       else if (ir_code == rcCmdOk)           // Przycisk OK
       {  
@@ -2687,6 +2691,7 @@ void handleJoystick()
   {
     Serial.println("Przycisk SW wciśnięty");
     joystickPressed = true; // Zmieniamy stan flagi, aby już nie reagować na kolejne wciśnięcia
+    joystickSwitch = true;
     lastButtonPress = currentMillis; // Zapisanie czasu ostatniego naciśnięcia
   }
 
@@ -2886,6 +2891,172 @@ void SDinit()
   else
   {
     Serial.println("Plik bank_nr.txt już istnieje.");
+  }
+}
+
+// Funkcja do pobierania i wyciągania danych kalendarzowych z HTML poniższego adresu URL
+void fetchAndDisplayCalendar()
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    HTTPClient http;
+    
+    // Adres URL do pobrania danych z kalendarza
+    const char* serverName = "https://www.kalendarzswiat.pl/dzisiaj";
+
+    // Wysyłamy żądanie GET do serwera
+    http.begin(serverName);
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode == 200)  // 200 = OK
+    {
+      // Otrzymujemy odpowiedź w formie string
+      String payload = http.getString();
+      
+      // Wyciągamy nazwę dnia tygodnia
+      int startWeekday = payload.indexOf("<span class=\"weekday\">") + 21;
+      int endWeekday = payload.indexOf("</span>", startWeekday);
+      String weekday = payload.substring(startWeekday, endWeekday);
+      weekday.trim();  // Usuwamy zbędne znaki
+
+      // Wyciągamy numer dnia
+      int startDay = payload.indexOf("<span class=\"day\">") + 18;
+      int endDay = payload.indexOf("</span>", startDay);
+      String day = payload.substring(startDay, endDay);
+      day.trim();  // Usuwamy zbędne znaki
+
+      // Wyciągamy nazwę miesiąca
+      int startMonth = payload.indexOf("<span class=\"month-name\">") + 24;
+      int endMonth = payload.indexOf("</span>", startMonth);
+      String month = payload.substring(startMonth, endMonth);
+      month.trim();  // Usuwamy zbędne znaki
+
+      // Wyciągamy rok
+      int startYear = payload.indexOf("<span class=\"year\">") + 19;
+      int endYear = payload.indexOf("</span>", startYear);
+      String year = payload.substring(startYear, endYear);
+      year.trim();  // Usuwamy zbędne znaki
+
+      // Wyciąganie imienin
+      int startImieniny = payload.indexOf("<p class=\"namedays\">") + 20;
+      int endImieniny = payload.indexOf("</p>", startImieniny);
+      String imieniny = payload.substring(startImieniny, endImieniny);
+      imieniny.trim();  // Usuwamy zbędne znaki
+
+      // Wyciąganie ważnych wydarzeń
+      int startSwieta = payload.indexOf("<h3>Święta i ważne wydarzenia</h3>") + 34;
+      int endSwieta = payload.indexOf("</ul>", startSwieta);
+      String swieta = payload.substring(startSwieta, endSwieta);
+
+      // Szukamy wszystkich Świąt i ważnych wydarzeń
+      String allHolidays = "";
+      int startStrongIndex = swieta.indexOf("<strong>");
+      while (startStrongIndex != -1)
+      {
+        int endStrongIndex = swieta.indexOf("</strong>", startStrongIndex);  // Końcowy znacznik </strong>
+        String event = swieta.substring(startStrongIndex + 8, endStrongIndex);  // Wyciągamy tekst wewnątrz <strong>
+        allHolidays += event + "\n";  // Dodajemy wydarzenie do listy
+        startStrongIndex = swieta.indexOf("<strong>", endStrongIndex);  // Szukamy kolejnego <strong>
+      }
+
+      // Wyciąganie wschodu słońca
+      int startWschod = payload.indexOf("id=\"sunrise_time\">") + 18;
+      int endWschod = payload.indexOf("</b>", startWschod);
+      String wschod_slonca = payload.substring(startWschod, endWschod);
+      wschod_slonca.trim();  // Usuwamy zbędne znaki
+
+      // Wyciąganie zachodu słońca
+      int startZachod = payload.indexOf("id=\"sunset_time\">") + 17;
+      int endZachod = payload.indexOf("</b>", startZachod);
+      String zachod_slonca = payload.substring(startZachod, endZachod);
+      zachod_slonca.trim();  // Usuwamy zbędne znaki
+
+      // Wyciąganie długości dnia
+      int startDlugosc = payload.indexOf("id=\"day_duration\">") + 18;
+      int endDlugosc = payload.indexOf("</strong>", startDlugosc);
+      String dlugosc_dnia = payload.substring(startDlugosc, endDlugosc);
+      dlugosc_dnia.trim();  // Usuwamy zbędne znaki
+
+      // Szukamy przysłów
+      int startProverbs = payload.indexOf("<h3>Przysłowia na dziś</h3>") + 26;  // +26, aby przejść za nagłówek
+      int endProverbs = payload.indexOf("</h3>", startProverbs);
+      String proverbs = payload.substring(startProverbs, endProverbs);
+      proverbs.trim();  // Usuwamy zbędne znaki
+
+      // Szukamy wszystkich przysłów
+      String allProverbs = "";
+      int startProverbIndex = payload.indexOf("<p class=\"section\">", startProverbs);
+      while (startProverbIndex != -1)
+      {
+        int endProverbIndex = payload.indexOf("</p>", startProverbIndex);
+        String proverb = payload.substring(startProverbIndex + 19, endProverbIndex); // 19 to długość "<p class=\"section\">"
+        allProverbs += proverb + "\n";  // Dodajemy przysłowie do listy
+        startProverbIndex = payload.indexOf("<p class=\"section\">", endProverbIndex);  // Szukamy kolejnego przysłowia
+      }
+
+      // Wyświetlamy dane na Serial Monitorze
+      String calendar = weekday + ", " + day + " " + month + " " + year;
+      calendar.replace(">", "");  // Usuwamy wszystkie znaki '>'
+      
+      Serial.println("Dzisiaj jest: " + calendar);
+      Serial.println("Wschód słońca: " + wschod_slonca);
+      Serial.println("Zachód słońca: " + zachod_slonca);
+      Serial.println("Długość dnia: " + dlugosc_dnia);
+      Serial.println("Imieniny: " + imieniny);
+
+      Serial.println("Święta i ważne wydarzenia:");
+      Serial.println(allHolidays);
+
+      Serial.println("Przysłowia na dziś:");
+      Serial.println(allProverbs);
+
+      timeDisplay = false;
+      displayActive = true;
+      displayStartTime = millis();
+      processText(calendar);  // Podstawienie polskich znaków diakrytycznych
+      u8g2.clearBuffer();
+      u8g2.setFont(spleen6x12PL);
+      u8g2.setCursor(0, 12);
+      u8g2.print("Dzisiaj jest " + calendar);
+
+      String wschod = "Wschód słońca: ";
+      processText(wschod);  // Podstawienie polskich znaków diakrytycznych
+      String zachod = "  Zachód słońca: ";
+      processText(zachod);  // Podstawienie polskich znaków diakrytycznych
+      u8g2.setCursor(0, 24);
+      u8g2.print(wschod + wschod_slonca + zachod + zachod_slonca);
+
+      String dayLenght = "Długość dnia: ";
+      processText(dayLenght);  // Podstawienie polskich znaków diakrytycznych
+      u8g2.setCursor(0, 36);
+      u8g2.print(dayLenght + dlugosc_dnia);
+
+      String line1 = imieniny.substring(0, 32);  // Pierwsze 32 znaki
+      u8g2.setCursor(0, 48);
+      u8g2.print("Imieniny: " + line1);
+
+      String line2 = imieniny.substring(32, 74);  // Kolejne 42 znaki
+      u8g2.setCursor(0, 60);
+      u8g2.print(line2);
+
+      displayTimeout = 12000;  // Zwiększenie czasu bezczynności na 12 sekund
+      
+      u8g2.sendBuffer();
+
+    }
+
+    else
+    {
+      Serial.print("Błąd w zapytaniu HTTP. Kod błędu: ");
+      Serial.println(httpResponseCode);
+    }
+
+    // Zamykanie połączenia HTTP
+    http.end();
+  }
+  else
+  {
+    Serial.println("Brak połączenia z WiFi.");
   }
 }
 
@@ -3129,6 +3300,7 @@ void loop()
   // Przywracanie poprzedniej zawartości ekranu po 6 sekundach
   if (displayActive && (millis() - displayStartTime >= displayTimeout))   
   {
+    displayTimeout = 6000;
     displayActive = false;
     timeDisplay = true;
     listedStations = false;
@@ -3315,6 +3487,13 @@ void loop()
       bank_nr = 16;
     }
     displayBank();
+  }
+
+  if ((joystickSwitch == true) || (IRhomeButton == true))
+  {
+    joystickSwitch = false;
+    IRhomeButton = false;
+    fetchAndDisplayCalendar();
   }
 
 }

@@ -3014,6 +3014,7 @@ void fetchAndDisplayCalendar()
       displayActive = true;
       displayStartTime = millis();
       processText(calendar);  // Podstawienie polskich znaków diakrytycznych
+      processText(imieniny);  // Podstawienie polskich znaków diakrytycznych
       u8g2.clearBuffer();
       u8g2.setFont(spleen6x12PL);
       u8g2.setCursor(0, 12);

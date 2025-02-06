@@ -2977,22 +2977,31 @@ void fetchAndDisplayCalendar()
       String dlugosc_dnia = payload.substring(startDlugosc, endDlugosc);
       dlugosc_dnia.trim();  // Usuwamy zbędne znaki
 
-      // Szukamy przysłów
-      int startProverbs = payload.indexOf("<h3>Przysłowia na dziś</h3>") + 26;  // +26, aby przejść za nagłówek
-      int endProverbs = payload.indexOf("</h3>", startProverbs);
-      String proverbs = payload.substring(startProverbs, endProverbs);
-      proverbs.trim();  // Usuwamy zbędne znaki
-
-      // Szukamy wszystkich przysłów
+      // Szukamy przysłów, uwzględniając oba możliwe nagłówki: "Przysłowia na dziś" i "Przysłowie na dziś"
       String allProverbs = "";
-      int startProverbIndex = payload.indexOf("<p class=\"section\">", startProverbs);
-      while (startProverbIndex != -1)
+      int startProverbs = payload.indexOf("<h3>Przysłowia na dziś</h3>");
+      if (startProverbs == -1)
       {
-        int endProverbIndex = payload.indexOf("</p>", startProverbIndex);
-        String proverb = payload.substring(startProverbIndex + 19, endProverbIndex); // 19 to długość "<p class=\"section\">"
-        allProverbs += proverb + "\n";  // Dodajemy przysłowie do listy
-        startProverbIndex = payload.indexOf("<p class=\"section\">", endProverbIndex);  // Szukamy kolejnego przysłowia
+        startProverbs = payload.indexOf("<h3>Przysłowie na dziś</h3>");  // Sprawdzamy alternatywny nagłówek
       }
+      if (startProverbs != -1)
+      {
+        startProverbs += 26;  // +26, aby przejść za nagłówek
+        int endProverbs = payload.indexOf("</h3>", startProverbs);
+        String proverbs = payload.substring(startProverbs, endProverbs);
+        proverbs.trim();  // Usuwamy zbędne znaki
+
+        // Szukamy wszystkich przysłów
+        int startProverbIndex = payload.indexOf("<p class=\"section\">", startProverbs);
+        while (startProverbIndex != -1)
+        {
+          int endProverbIndex = payload.indexOf("</p>", startProverbIndex);
+          String proverb = payload.substring(startProverbIndex + 19, endProverbIndex); // 19 to długość "<p class=\"section\">"
+          allProverbs += proverb + "\n";  // Dodajemy przysłowie do listy
+          startProverbIndex = payload.indexOf("<p class=\"section\">", endProverbIndex);  // Szukamy kolejnego przysłowia
+        }
+      }
+
 
       // Wyświetlamy dane na Serial Monitorze
       String calendar = weekday + ", " + day + " " + month + " " + year;

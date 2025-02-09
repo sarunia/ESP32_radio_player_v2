@@ -1193,12 +1193,10 @@ void audio_info(const char *info)
   Serial.println(info);
   // Znajdź pozycję "BitRate:" w tekście
   int bitrateIndex = String(info).indexOf("BitRate:");
-  bitratePresent = false;
   if (bitrateIndex != -1)
   {
     // Przytnij tekst od pozycji "BitRate:" do końca linii
     bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
-    bitratePresent = true;
     if (currentOption == PLAY_FILES)
     {
       displayPlayer();
@@ -1334,6 +1332,8 @@ void audio_bitrate(const char *info)
 {
   Serial.print("bitrate     ");
   Serial.println(info);
+  bitrateString = String(info);
+  bitratePresent = true;
 }
 
 void audio_eof_mp3(const char *info)
@@ -2021,8 +2021,8 @@ void displayRadio()
     u8g2.drawStr(0, yPosition, currentLine.c_str());
   }
 
-  String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-  u8g2.drawStr(0, 52, displayString.c_str());
+  //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
+  //u8g2.drawStr(0, 52, displayString.c_str());
   u8g2.sendBuffer();
 }
 
@@ -2104,9 +2104,9 @@ void displayPlayer()
     String folder = folderNameString;
     processText(folder);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(folder);
-    u8g2.drawStr(0, 52, "                                           ");
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
+    //u8g2.drawStr(0, 52, "                                           ");
+    //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
+    //u8g2.drawStr(0, 52, displayString.c_str());
     u8g2.sendBuffer();
     Serial.println("Tagi ID3 artysty, tytułu i folderu gotowe do wyświetlenia");
   }
@@ -2147,9 +2147,9 @@ void displayPlayer()
       u8g2.setCursor(0, 31);
       u8g2.print(fileNameString);
     }
-    u8g2.drawStr(0, 52, "                                           ");
-    String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + "b/s";
-    u8g2.drawStr(0, 52, displayString.c_str());
+    //u8g2.drawStr(0, 52, "                                           ");
+    //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
+    //u8g2.drawStr(0, 52, displayString.c_str());
     u8g2.sendBuffer();
     Serial.println("Brak prawidłowych tagów ID3 do wyświetlenia");
   }
@@ -2399,11 +2399,12 @@ void displayStations()
   u8g2.sendBuffer();  // Wyślij zawartość bufora do ekranu OLED, aby wyświetlić zmiany
 }
 
-// Funkcja wywoływana co sekundę przez timer do aktualizacji czasu na wyświetlaczu
+// Funkcja wywoływana co sekundę przez timer do aktualizacji czasu oraz parametrów audio na wyświetlaczu
 void updateTimer()  
 {
-  // Wypełnij spacjami, aby wyczyścić pole
-  u8g2.drawStr(170, 51, "              ");
+  u8g2.setDrawColor(1);
+  u8g2.setFont(spleen6x12PL);
+  u8g2.drawStr(0, 51, "                                           ");
 
   // Zwiększ licznik sekund
   seconds++;
@@ -2413,8 +2414,6 @@ void updateTimer()
   unsigned int minutes = seconds / 60;
   unsigned int remainingSeconds = seconds % 60;
 
-  u8g2.setDrawColor(1); // Ustaw kolor na biały
-
   if (timeDisplay == true)
   {
     if (audio.isRunning() == true)
@@ -2422,35 +2421,39 @@ void updateTimer()
       if (mp3 == true)
       {
         u8g2.drawStr(170, 51, "MP3");
-        //Serial.println("Gram MP3");
       }
       if (flac == true)
       {
         u8g2.drawStr(170, 51, "FLAC");
-        //Serial.println("Gram FLAC");
       }
       if (aac == true)
       {
         u8g2.drawStr(170, 51, "AAC");
-        //Serial.println("Gram AAC");
       }
       if (vorbis == true)
       {
-        u8g2.drawStr(170, 51, "VBR");
-        //Serial.println("Gram VBR");
+        u8g2.drawStr(170, 51, "VORB");
       }
     }
 
-    if ((currentOption == PLAY_FILES) && (bitratePresent == true))
+    if (currentOption == PLAY_FILES)
     {
       // Formatuj czas jako "mm:ss"
       char timeString[10];
       snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
+
+      // Pobierz bitrate
+      bitrateString = audio.getBitRate(true);
+      //Serial.print("Bitrate pliku: ");
+      //Serial.println(bitrateString + " b/s");
+      
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+      u8g2.drawStr(0, 51, displayString.c_str());
       u8g2.drawStr(210, 51, timeString);
       u8g2.sendBuffer();
     }
 
-    if ((currentOption == INTERNET_RADIO) && ((mp3 == true) || (flac == true) || (aac == true) || (vorbis == true)))
+    if (currentOption == INTERNET_RADIO)
     {
       // Struktura przechowująca informacje o czasie
       struct tm timeinfo;
@@ -2458,7 +2461,6 @@ void updateTimer()
       // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
       if (!getLocalTime(&timeinfo))
       {
-        // Wyświetl komunikat o niepowodzeniu w pobieraniu czasu
         Serial.println("Nie udało się uzyskać czasu");
         return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
       }
@@ -2467,11 +2469,20 @@ void updateTimer()
       char timeString[9]; // Bufor przechowujący czas w formie tekstowej
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
+      // Pobierz bitrate
+      //bitrateString = audio.getBitRate(false);
+      //Serial.print("Bitrate stacji: ");
+      //Serial.println(bitrateString + " b/s");
+
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+      u8g2.drawStr(0, 51, displayString.c_str());
       u8g2.drawStr(205, 51, timeString);
       u8g2.sendBuffer();
+
     }
   }
 }
+
 
 // Funkcja do zapisywania numeru stacji i numeru banku na karcie SD
 void saveStationOnSD()

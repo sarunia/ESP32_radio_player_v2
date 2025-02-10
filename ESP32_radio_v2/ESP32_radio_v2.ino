@@ -923,6 +923,7 @@ void saveStationToEEPROM(const char* station)
 void changeStation()
 {
   mp3 = flac = aac = vorbis = false;
+  bitratePresent = false;
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
   // Tworzymy nazwę pliku banku
@@ -1195,8 +1196,11 @@ void audio_info(const char *info)
   int bitrateIndex = String(info).indexOf("BitRate:");
   if (bitrateIndex != -1)
   {
-    // Przytnij tekst od pozycji "BitRate:" do końca linii
-    bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
+    if (bitratePresent == false)
+    {
+      // Przytnij tekst od pozycji "BitRate:" do końca linii
+      bitrateString = String(info).substring(bitrateIndex + 8, String(info).indexOf('\n', bitrateIndex));
+    }
     if (currentOption == PLAY_FILES)
     {
       displayPlayer();
@@ -2414,28 +2418,25 @@ void updateTimer()
   unsigned int minutes = seconds / 60;
   unsigned int remainingSeconds = seconds % 60;
 
-  if (timeDisplay == true)
+  if ((timeDisplay == true) && audio.isRunning())
   {
-    if (audio.isRunning() == true)
+    if (mp3 == true)
     {
-      if (mp3 == true)
-      {
-        u8g2.drawStr(170, 51, "MP3");
-      }
-      if (flac == true)
-      {
-        u8g2.drawStr(170, 51, "FLAC");
-      }
-      if (aac == true)
-      {
-        u8g2.drawStr(170, 51, "AAC");
-      }
-      if (vorbis == true)
-      {
-        u8g2.drawStr(170, 51, "VORB");
-      }
+      u8g2.drawStr(170, 51, "MP3");
     }
-
+    if (flac == true)
+    {
+      u8g2.drawStr(170, 51, "FLAC");
+    }
+    if (aac == true)
+    {
+      u8g2.drawStr(170, 51, "AAC");
+    }
+    if (vorbis == true)
+    {
+      u8g2.drawStr(170, 51, "VORB");
+    }
+    
     if (currentOption == PLAY_FILES)
     {
       // Formatuj czas jako "mm:ss"
@@ -2480,6 +2481,25 @@ void updateTimer()
       u8g2.sendBuffer();
 
     }
+  }
+
+  if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == false)) // Wyświetlanie aktualnego czasu w przypadku braku audio ze stacji radiowej
+  {
+      // Struktura przechowująca informacje o czasie
+      struct tm timeinfo;
+
+      // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
+      if (!getLocalTime(&timeinfo))
+      {
+        Serial.println("Nie udało się uzyskać czasu");
+        return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
+      }
+
+      // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
+      char timeString[9]; // Bufor przechowujący czas w formie tekstowej
+      snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+      u8g2.drawStr(205, 51, timeString);
+      u8g2.sendBuffer();
   }
 }
 

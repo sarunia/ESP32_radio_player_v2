@@ -2498,6 +2498,7 @@ void updateTimer()
       // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
       char timeString[9]; // Bufor przechowujący czas w formie tekstowej
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+      u8g2.drawStr(0, 32, "..........brak strumienia audio...........");
       u8g2.drawStr(205, 51, timeString);
       u8g2.sendBuffer();
   }

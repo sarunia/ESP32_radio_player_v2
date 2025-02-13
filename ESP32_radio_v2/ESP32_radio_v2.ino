@@ -78,6 +78,7 @@ int previous_fileIndex = 0;       // Numer aktualnie wybranego pliku do przywró
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
 int previous_folderIndex = 0;     // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
+int volumeArray[100];             // Wartości głośności dla 100 stacji w każdym banku
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 4;          // Maksymalna liczba widocznych linii na ekranie OLED
 
@@ -924,6 +925,7 @@ void changeStation()
 {
   mp3 = flac = aac = vorbis = false;
   bitratePresent = false;
+
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
   // Tworzymy nazwę pliku banku
@@ -995,6 +997,8 @@ void changeStation()
 
     // Połącz z daną stacją
     audio.connecttohost(stationUrl.c_str());
+    // Wczytujemy ustawienia głośności dla banku
+    loadVolumeSettings(station_nr, bank_nr);
     previous_station_nr = station_nr;
     previous_bank_nr = bank_nr;
     saveStationOnSD();
@@ -2505,7 +2509,6 @@ void updateTimer()
 }
 
 
-// Funkcja do zapisywania numeru stacji i numeru banku na karcie SD
 void saveStationOnSD()
 {
   // Sprawdź, czy plik station_nr.txt istnieje
@@ -2518,7 +2521,7 @@ void saveStationOnSD()
     if (myFile)
     {
       myFile.println(station_nr);
-      myFile.close();
+      myFile.close();  // Zamknięcie pliku po zapisie
       Serial.println("Aktualizacja station_nr.txt na karcie SD.");
     }
     else
@@ -2535,7 +2538,7 @@ void saveStationOnSD()
     if (myFile)
     {
       myFile.println(station_nr);
-      myFile.close();
+      myFile.close();  // Zamknięcie pliku po zapisie
       Serial.println("Utworzono i zapisano station_nr.txt na karcie SD.");
     }
     else
@@ -2554,7 +2557,7 @@ void saveStationOnSD()
     if (myFile)
     {
       myFile.println(bank_nr);
-      myFile.close();
+      myFile.close();  // Zamknięcie pliku po zapisie
       Serial.println("Aktualizacja bank_nr.txt na karcie SD.");
     }
     else
@@ -2571,7 +2574,7 @@ void saveStationOnSD()
     if (myFile)
     {
       myFile.println(bank_nr);
-      myFile.close();
+      myFile.close();  // Zamknięcie pliku po zapisie
       Serial.println("Utworzono i zapisano bank_nr.txt na karcie SD.");
     }
     else
@@ -2580,6 +2583,7 @@ void saveStationOnSD()
     }
   }
 }
+
 
 // Funkcja do odczytywania numeru stacji i numeru banku z karty SD
 void readStationFromSD()
@@ -2635,6 +2639,7 @@ void readStationFromSD()
     Serial.println("Plik bank_nr.txt nie istnieje.");
   }
 }
+
 
 
 // Funkcja do obsługi joysticka w osi X oraz jego przycisku
@@ -2800,22 +2805,6 @@ void processText(String &text)
   }
 }
 
-// Funkcja do ustawienia głośności na żądaną wartość
-void volumeSet()
-{
-  timeDisplay = false;  // Wyłączanie wyświetlania czasu
-  displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
-  displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
-  Serial.print("Wartość głośności: ");
-  Serial.println(volumeValue);
-  audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
-  String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_ncenB14_tr);
-  u8g2.drawStr(65, 25, "VOLUME SET");
-  u8g2.drawStr(115, 50, volumeValueStr.c_str());
-  u8g2.sendBuffer();
-}
 
 // Funkcja wyświetlająca numer banku na pełnym ekranie
 void displayBank()
@@ -2830,6 +2819,34 @@ void displayBank()
   u8g2.drawStr(210, 40, bankNrStr.c_str());  // Wyświetlenie numeru banku
   u8g2.sendBuffer();
 }
+
+// Funkcja do ustawienia głośności na żądaną wartość
+void volumeSet()
+{
+  timeDisplay = false;  // Wyłączanie wyświetlania czasu
+  displayActive = true;  // Ustawienie flagi aktywności wyświetlacza
+  displayStartTime = millis();  // Zapisanie czasu rozpoczęcia wyświetlania
+  
+  // Sprawdzenie, czy volumeValue mieści się w zakresie 0-21
+  if (volumeValue < 0) volumeValue = 0;
+  if (volumeValue > 21) volumeValue = 21;
+
+  Serial.print("Wartość głośności: ");
+  Serial.println(volumeValue);
+  
+  // Ustawienie głośności
+  audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
+  
+  // Wyświetlanie głośności na ekranie
+  String volumeValueStr = String(volumeValue);  // Zamiana liczby VOLUME na ciąg znaków
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB14_tr);
+  u8g2.drawStr(65, 25, "VOLUME SET");
+  u8g2.drawStr(115, 50, volumeValueStr.c_str());
+  u8g2.sendBuffer();
+  saveVolumeSettings(station_nr, volumeValue, bank_nr);
+}
+
 
 // Obsługa regulacji głośności z pilota zdalnego sterowania
 void volumeSetFromRemote()
@@ -2856,6 +2873,174 @@ void volumeSetFromRemote()
     volumeSet();
   }
 }
+
+
+// Zapisywanie na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
+void saveVolumeSettings(int station, int volume, int bank)
+{
+  // Sprawdzenie czy stacja mieści się w zakresie
+  if (station < 0 || station >= 100)
+  {
+    Serial.println("Błąd: Indeks stacji poza zakresem.");
+    return;
+  }
+
+  // Generowanie nazwy pliku na podstawie numeru banku (np. /volume_bank01.txt)
+  String fileNameString = "/volume_bank";
+  if (bank < 10)
+  {
+    fileNameString += "0";  // Dodajemy '0', jeśli numer banku jest mniejszy niż 10
+  }
+  fileNameString += String(bank) + ".txt";
+
+  // Otwieramy plik do zapisu
+  File file = SD.open(fileNameString, FILE_WRITE);
+  if (file)
+  {
+    // Aktualizujemy tylko wartość dla danej stacji (station_nr - 1, aby użyć właściwego indeksu tablicy)
+    volumeArray[station - 1] = volume;  // Zapisywanie głośności dla wybranej stacji
+
+    // Zapisujemy całą tablicę głośności do pliku
+    for (int i = 0; i < 100; i++)
+    {
+      file.print(volumeArray[i]);
+      if (i < 99)
+      {
+        file.print(", ");
+      }
+      else
+      {
+        file.println(volumeArray[i]);
+      }
+    }
+
+    file.close();
+    Serial.println("Ustawienia głośności zostały zapisane.");
+
+    // Drukowanie tablicy po zapisie
+    Serial.println("Tablica głośności po zapisie:");
+    for (int i = 0; i < 100; i++)
+    {
+      Serial.print(volumeArray[i]);
+      Serial.print(", ");
+    }
+    Serial.println();
+  }
+  else
+  {
+    Serial.println("Błąd otwierania pliku do zapisu.");
+  }
+}
+
+
+// Ładowanie zapisanych na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
+void loadVolumeSettings(int station, int bank)
+{
+  // Sprawdzamy, czy indeks stacji jest w zakresie
+  if (station < 1 || station > 100)
+  { 
+    Serial.println("Błąd: Indeks stacji poza zakresem.");
+    return;
+  }
+
+  // Generowanie nazwy pliku na podstawie numeru banku (np. /volume_bank01.txt)
+  String fileNameString = "/volume_bank";
+  if (bank < 10)
+  {
+    fileNameString += "0";  // Dodajemy '0', jeśli numer banku jest mniejszy niż 10
+  }
+  fileNameString += String(bank) + ".txt";
+
+  // Sprawdzamy, czy plik z ustawieniami głośności istnieje
+  if (SD.exists(fileNameString))
+  {
+    Serial.println("Plik głośności istnieje, próbuję otworzyć...");
+
+    // Otwieramy plik do odczytu
+    File file = SD.open(fileNameString, FILE_READ);
+    if (file)
+    {
+      Serial.println("Ustawienia głośności wczytane.");
+
+      int i = 0;
+      while (file.available())
+      {
+        String line = file.readStringUntil(',');  // Czytamy do przecinka
+        int volume = line.toInt();  // Przekształcamy string na int
+
+        if (i < 100)
+        {
+          // Sprawdzenie aby zmieścić się w min / max głośności
+          if (volume < 0) volume = 0;
+          if (volume > 21) volume = 21;
+          volumeArray[i] = volume;  // Zapisujemy odczytane wartości do tablicy
+        }
+        i++;
+      }
+      file.close();
+
+      // Ustawiamy głośność dla wybranej stacji
+      volumeValue = volumeArray[station - 1];
+      Serial.print("Głośność dla stacji ");
+      Serial.print(station);
+      Serial.print(" została ustawiona na: ");
+      Serial.println(volumeValue);
+      // Ustawienie głośności
+      audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
+    }
+    else
+    {
+      Serial.println("Błąd otwierania pliku do odczytu.");
+    }
+  }
+  else
+  {
+    Serial.println("Plik głośności nie istnieje.");
+    
+    // Tworzymy nowy plik z domyślnymi wartościami 12 dla wszystkich stacji
+    Serial.println("Tworzenie nowego pliku z wartościami 12 dla wszystkich stacji...");
+
+    File file = SD.open(fileNameString, FILE_WRITE);
+    if (file)
+    {
+      // Ustawiamy wszystkie elementy tablicy na 12
+      for (int i = 0; i < 100; i++)
+      {
+        volumeArray[i] = 12;  // Domyślna wartość głośności
+        file.print(volumeArray[i]);
+        if (i < 99)
+        {
+          file.print(", ");
+        }
+      }
+      file.close();
+      Serial.println("Plik z wartościami głośności 12 został zapisany.");
+
+      // Ustawiamy głośność dla wybranej stacji
+      volumeValue = volumeArray[station - 1];  // Pobieramy głośność dla wybranej stacji
+      Serial.print("Głośność dla stacji ");
+      Serial.print(station);
+      Serial.print(" została ustawiona na: ");
+      Serial.println(volumeValue);
+      // Ustawienie głośności
+      audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia pliku.");
+    }
+  }
+
+  // Drukowanie tablicy po odczycie
+  Serial.println("Tablica głośności po odczycie:");
+  for (int i = 0; i < 100; i++)
+  {
+    Serial.print(volumeArray[i]);
+    Serial.print(", ");
+  }
+  Serial.println();
+}
+
 
 // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
 void SDinit()

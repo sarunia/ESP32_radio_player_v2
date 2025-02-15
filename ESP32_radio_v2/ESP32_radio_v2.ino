@@ -120,8 +120,9 @@ unsigned long debounceDelay = 300;        // Czas trwania debouncingu w miliseku
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
-unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
-unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
+//unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
+//unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
+unsigned long lastCheckTime = 0;          // Zmienna do śledzenia ostatniego czasu wyświetlenia komunikatu
 
 String directories[MAX_DIRECTORIES];      // Tablica do przechowywania nazw folderów
 String files[MAX_FILES];                  // Tablica do przechowywania nazw plików
@@ -2029,9 +2030,13 @@ void displayRadio()
     u8g2.drawStr(0, yPosition, currentLine.c_str());
   }
 
-  //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
-  //u8g2.drawStr(0, 52, displayString.c_str());
   u8g2.sendBuffer();
+  // Ponowne wysłanie buforu zawartości ekranu, eliminowanie przypadkowych krzaczków
+  if (millis() - lastCheckTime >= 100)
+  {
+    u8g2.sendBuffer();
+    lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
+  }
 }
 
 // Obsługa wyświetlacza dla odtwarzanego pliku z karty SD
@@ -2112,9 +2117,6 @@ void displayPlayer()
     String folder = folderNameString;
     processText(folder);  // Podstawienie polskich znaków diakrytycznych
     u8g2.print(folder);
-    //u8g2.drawStr(0, 52, "                                           ");
-    //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
-    //u8g2.drawStr(0, 52, displayString.c_str());
     u8g2.sendBuffer();
     Serial.println("Tagi ID3 artysty, tytułu i folderu gotowe do wyświetlenia");
   }
@@ -2155,9 +2157,6 @@ void displayPlayer()
       u8g2.setCursor(0, 31);
       u8g2.print(fileNameString);
     }
-    //u8g2.drawStr(0, 52, "                                           ");
-    //String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit";
-    //u8g2.drawStr(0, 52, displayString.c_str());
     u8g2.sendBuffer();
     Serial.println("Brak prawidłowych tagów ID3 do wyświetlenia");
   }
@@ -2458,7 +2457,7 @@ void updateTimer()
       u8g2.sendBuffer();
     }
 
-    if (currentOption == INTERNET_RADIO)
+    if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == true))
     {
       // Struktura przechowująca informacje o czasie
       struct tm timeinfo;
@@ -2487,24 +2486,31 @@ void updateTimer()
     }
   }
 
-  if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == false)) // Wyświetlanie aktualnego czasu w przypadku braku audio ze stacji radiowej
+  // Sprawdzanie czy Internet Radio jest włączone, ale nie ma strumienia audio
+  if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == false))
   {
-      // Struktura przechowująca informacje o czasie
-      struct tm timeinfo;
+    // Struktura przechowująca informacje o czasie
+    struct tm timeinfo;
 
-      // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
-      if (!getLocalTime(&timeinfo))
-      {
-        Serial.println("Nie udało się uzyskać czasu");
-        return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
-      }
+    // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
+    if (!getLocalTime(&timeinfo))
+    {
+      Serial.println("Nie udało się uzyskać czasu");
+      return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
+    }
 
-      // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
-      char timeString[9]; // Bufor przechowujący czas w formie tekstowej
-      snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-      u8g2.drawStr(0, 32, "..........brak strumienia audio...........");
-      u8g2.drawStr(205, 51, timeString);
-      u8g2.sendBuffer();
+    // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
+    char timeString[9]; // Bufor przechowujący czas w formie tekstowej
+    snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    // Pulsujący co 1 sekundę napis o braku strumienia audio z radia
+    if (millis() - lastCheckTime >= 1000)
+    {
+      u8g2.drawStr(0, 51, ".... Brak strumienia audio ! ....");
+      lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
+    }
+    u8g2.drawStr(205, 51, timeString);
+    u8g2.sendBuffer();
   }
 }
 

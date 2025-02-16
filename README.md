@@ -1,4 +1,4 @@
-# Internet Radio & Audio Player v2
+# ESP32-S3 Internet Radio & Audio Player v2
 
 ## Overview
 
@@ -6,8 +6,8 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 
 ## Features
 
-- **Internet Radio**: Stream radio stations from predefined URLs.
-- **Audio Player**: Play audio files from an SD card (supports MP3, FLAC, AAC).
+- **Internet Radio**: Stream radio stations from predefined URLs (supports MP3, FLAC, AAC, OGG Vorbis and other).
+- **Audio Player**: Play audio files from an SD card (supports MP3, FLAC, WAV and other).
 - **OLED Display**: Displays current station, track, and weather information.
 - **Rotary Encoders**: For navigation and volume control.
 - **Wi-Fi Configuration**: Easily set up Wi-Fi using [WiFiManager](https://github.com/tzapu/WiFiManager).
@@ -54,6 +54,74 @@ This project is an **Internet Radio and Audio Player** built using the ESP32 pla
 
 ### IR Receiver (NEC Protocol, 38 kHz)
 - **IR Receiver Signal Pin**: Pin 15
+
+Below is the list of button commands used for controlling various functions of the audio device using an IR remote (NEC protocol). Each button has a corresponding hexadecimal address representing its function.
+
+- `rcCmdVolumeUp (0x0028)` - **Volume Up**  
+  *Increases the audio volume.*
+  
+- `rcCmdVolumeDown (0x0024)` - **Volume Down**  
+  *Decreases the audio volume.*
+  
+- `rcCmdArrowRight (0x0026)` - **Right Arrow**  
+  *Moves to the next station or file and starts playback immediately.*
+  
+- `rcCmdArrowLeft (0x0027)` - **Left Arrow**  
+  *Moves to the previous station or file and starts playback immediately.*
+  
+- `rcCmdArrowUp (0x0030)` - **Up Arrow**  
+  *Scrolls up through the list of stations or files.*
+
+- `rcCmdArrowDown (0x0022)` - **Down Arrow**  
+  *Scrolls down through the list of stations or files.*
+  
+- `rcCmdOk (0x0025)` - **OK**  
+  *Confirms the selection of a station, folder, or file from the list.*
+  
+- `rcCmdMode (0x0020)` - **Mode**  
+  *Switches between internet radio and file player modes.*
+  
+- `rcCmdHome (0x0023)` - **Home**  
+  *Opens the system menu (functionality under development).*
+  
+- `rcCmdMute (0x0029)` - **Mute**  
+  *Mutes the audio output (functionality under development).*
+  
+- `rcCmdKey0 (0x0012)` - **Key 0**  
+  *Presses the "0" button on the remote.*
+
+- `rcCmdKey1 (0x0015)` - **Key 1**  
+  *Presses the "1" button on the remote.*
+
+- `rcCmdKey2 (0x0014)` - **Key 2**  
+  *Presses the "2" button on the remote.*
+
+- `rcCmdKey3 (0x0008)` - **Key 3**  
+  *Presses the "3" button on the remote.*
+
+- `rcCmdKey4 (0x0011)` - **Key 4**  
+  *Presses the "4" button on the remote.*
+
+- `rcCmdKey5 (0x0010)` - **Key 5**  
+  *Presses the "5" button on the remote.*
+
+- `rcCmdKey6 (0x0009)` - **Key 6**  
+  *Presses the "6" button on the remote.*
+
+- `rcCmdKey7 (0x0007)` - **Key 7**  
+  *Presses the "7" button on the remote.*
+
+- `rcCmdKey8 (0x0006)` - **Key 8**  
+  *Presses the "8" button on the remote.*
+
+- `rcCmdKey9 (0x0005)` - **Key 9**  
+  *Presses the "9" button on the remote.*
+
+- `rcCmdBankUp (0x0018)` - **FAV+ (Bank Up)**  
+  *Scrolls down through the list of banks or folders.*
+
+- `rcCmdBankDown (0x0019)` - **FAV- (Bank Down)**  
+  *Scrolls up through the list of banks or folders.*
 
 ## Software Dependencies
 

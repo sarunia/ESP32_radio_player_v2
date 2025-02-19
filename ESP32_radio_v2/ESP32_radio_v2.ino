@@ -39,7 +39,7 @@
 #define CLK_PIN2 11               // Podłączenie z pinu 10 do CLK na enkoderze
 #define DT_PIN2  10               // Podłączenie z pinu 11 do DT na enkoderze lewym
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
-#define MAX_STATIONS 100          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
+#define MAX_STATIONS 99          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
 #define MAX_DIRECTORIES 128       // Maksymalna liczba katalogów
 #define MAX_FILES 128             // Maksymalna liczba plików w katalogu
@@ -120,8 +120,8 @@ unsigned long debounceDelay = 300;        // Czas trwania debouncingu w miliseku
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
-//unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
-//unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
+unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
+unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
 unsigned long lastCheckTime = 0;          // Zmienna do śledzenia ostatniego czasu wyświetlenia komunikatu
 
 String directories[MAX_DIRECTORIES];      // Tablica do przechowywania nazw folderów
@@ -3336,7 +3336,7 @@ void setup()
   // Rezerwuje pamięć PSRAM dla bufora o określonej długości
   // 'ps_malloc' alokuje pamięć w PSRAM (jeśli dostępna) zamiast standardowej RAM
   // 'PSRAM_lenght' to liczba bajtów, jaką chcemy zaalokować
-  /*psramData = (unsigned char *)ps_malloc(PSRAM_lenght * sizeof(unsigned char));
+  psramData = (unsigned char *)ps_malloc(PSRAM_lenght * sizeof(unsigned char));
 
   // Sprawdzamy, czy pamięć PSRAM została poprawnie zainicjowana
   if (psramInit())
@@ -3350,7 +3350,7 @@ void setup()
   else
   {
     Serial.println("Błąd pamięci PSRAM");
-  }*/
+  }
   
 
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD

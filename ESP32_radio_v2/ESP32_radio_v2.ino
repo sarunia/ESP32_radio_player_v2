@@ -165,8 +165,8 @@ WiFiClient client;                        // Obiekt do obsługi połączenia WiF
 char stations[MAX_STATIONS][STATION_NAME_LENGTH];   // Tablica przechowująca nazwy stacji wraz z bankiem i numerem stacji
 
 const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do synchronizacji czasu
-const long  gmtOffset_sec = 3600;            // Przesunięcie czasu UTC w sekundach
-const int   daylightOffset_sec = 3600;       // Przesunięcie czasu letniego w sekundach, dla Polski to 1 godzina
+//const long  gmtOffset_sec = 3600;            // Przesunięcie czasu UTC w sekundach
+//const int   daylightOffset_sec = 3600;       // Przesunięcie czasu letniego w sekundach, dla Polski to 1 godzina
 
 // Deklaracja obiektu JSON
 StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
@@ -3394,7 +3394,8 @@ void setup()
     u8g2.setFont(u8g2_font_ncenB18_tr);
     u8g2.drawStr(5, 40, "WIFI CONNECTED");
     u8g2.sendBuffer();
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", ntpServer); // Konfiguracja strefy czasowej dla Polski z czasem letnim
     timer1.attach(1, updateTimer);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
     timer2.attach(300, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 5 minut
     timer3.attach(10, switchWeatherData);   // Ustaw timer, aby wywoływał funkcję switchWeatherData co 10 sekund

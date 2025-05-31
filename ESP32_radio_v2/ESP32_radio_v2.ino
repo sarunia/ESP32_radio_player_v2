@@ -43,22 +43,24 @@
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
 #define MAX_DIRECTORIES 128       // Maksymalna liczba katalogów
 #define MAX_FILES 128             // Maksymalna liczba plików w katalogu
-#define STATIONS_URL    "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL3   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_04"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL4   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_05"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL5   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_06"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL6   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_07"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL7   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_08"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL8   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_09"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL9   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_10"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL10  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_11"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL11  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_12"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL12  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_13"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL13  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_14"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL14  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_15"      // Adres URL do pliku z listą stacji radiowych
-#define STATIONS_URL15  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_16"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL3   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_03"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL4   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_04"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL5   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_05"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL6   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_06"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL7   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_07"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL8   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_08"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL9   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_09"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL10  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_10"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL11  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_11"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL12  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_12"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL13  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_13"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL14  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_14"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL15  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_15"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL16  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_16"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL17  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_17"      // Adres URL do pliku z listą stacji radiowych
+#define STATIONS_URL18  "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_18"      // Adres URL do pliku z listą stacji radiowych
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
@@ -179,7 +181,7 @@ enum MenuOption
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 
 /*===============    Definicja portów i deklaracje zmiennych do obsługi joysticka    =============*/
-const int xPin = 16;  // Oś X (ADC)
+/*const int xPin = 16;  // Oś X (ADC)
 const int yPin = 17;  // Oś Y (ADC)
 const int swPin = 18; // Przycisk SW
 
@@ -198,7 +200,7 @@ bool joystickMovedLeft = false;
 bool joystickMovedRight = false;
 bool joystickPressed = false;
 bool joystickSwitch = false;
-
+*/
 
 
 /*===============    Definicja portu i deklaracje zmiennych do obsługi odbiornika IR    =============*/
@@ -711,7 +713,8 @@ void getWeatherData()
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
+  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -1026,52 +1029,58 @@ void fetchStationsFromServer()
   switch (bank_nr)
   {
     case 1:
-      url = STATIONS_URL;
-      break;
-    case 2:
       url = STATIONS_URL1;
       break;
-    case 3:
+    case 2:
       url = STATIONS_URL2;
       break;
-    case 4:
+    case 3:
       url = STATIONS_URL3;
       break;
-    case 5:
+    case 4:
       url = STATIONS_URL4;
       break;
-    case 6:
+    case 5:
       url = STATIONS_URL5;
       break;
-    case 7:
+    case 6:
       url = STATIONS_URL6;
       break;
-    case 8:
+    case 7:
       url = STATIONS_URL7;
       break;
-    case 9:
+    case 8:
       url = STATIONS_URL8;
       break;
-    case 10:
+    case 9:
       url = STATIONS_URL9;
       break;
-    case 11:
+    case 10:
       url = STATIONS_URL10;
       break;
-    case 12:
+    case 11:
       url = STATIONS_URL11;
       break;
-    case 13:
+    case 12:
       url = STATIONS_URL12;
       break;
-    case 14:
+    case 13:
       url = STATIONS_URL13;
       break;
-    case 15:
+    case 14:
       url = STATIONS_URL14;
       break;
-    case 16:
+    case 15:
       url = STATIONS_URL15;
+      break;
+    case 16:
+      url = STATIONS_URL16;
+      break;
+    case 17:
+      url = STATIONS_URL17;
+      break;
+    case 18:
+      url = STATIONS_URL18;
       break;
     default:
       Serial.println("Nieprawidłowy numer banku");
@@ -1710,7 +1719,7 @@ void playFromSelectedFolder()
       audio.loop(); 
       button1.loop();
       button2.loop();
-      handleJoystick();
+      //handleJoystick();
       processIRCode();
       vTaskDelay(1); 
 
@@ -2649,7 +2658,7 @@ void readStationFromSD()
 
 
 // Funkcja do obsługi joysticka w osi X oraz jego przycisku
-void handleJoystick()
+/*void handleJoystick()
 {
   int xValue = analogRead(xPin); // Odczyt wartości z osi X
   
@@ -2746,7 +2755,7 @@ void handleJoystick()
 
   // Zaktualizowanie stanu przycisku
   lastButtonState = swState;
-}
+}*/
 
 
 // Funkcja przetwarza tekst, wstawiając polskie znaki diakrytyczne
@@ -3310,9 +3319,9 @@ void setup()
   pinMode(SW_PIN2, INPUT_PULLUP);
 
    // Inicjalizacja pinów joysticka
-  pinMode(xPin, INPUT);
-  pinMode(yPin, INPUT);
-  pinMode(swPin, INPUT_PULLUP);
+  //pinMode(xPin, INPUT);
+  //pinMode(yPin, INPUT);
+  //pinMode(swPin, INPUT_PULLUP);
 
   pinMode(recv_pin, INPUT); // Ustawienie pinu odbiornika IR jako wejście
 
@@ -3419,7 +3428,7 @@ void loop()
   button1.loop();          // Wykonuje pętlę dla obiektu button1 (sprawdza stan przycisku z enkodera 1)
   button2.loop();          // Wykonuje pętlę dla obiektu button2 (sprawdza stan przycisku z enkodera 2)
   handleButtons();         // Wywołuje funkcję obsługującą przyciski i wykonuje odpowiednie akcje (np. zmiana opcji, wejście do menu)
-  handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
+  //handleJoystick();        // Obsługuje ruch joysticka i wykonuje odpowiednie akcje (np. nawigacja po menu, sterowanie)
   processIRCode();         // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
   volumeSetFromRemote();   // Obsługa regulacji głośności z pilota zdalnego sterowania
   vTaskDelay(1);           // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
@@ -3515,13 +3524,13 @@ void loop()
         bank_nr--;
         if (bank_nr < 1)
         {
-          bank_nr = 16;
+          bank_nr = 18;
         }
       } 
       else  // Obracanie w prawo
       {
         bank_nr++;
-        if (bank_nr > 16)
+        if (bank_nr > 18)
         {
           bank_nr = 1;
         }
@@ -3685,6 +3694,11 @@ void loop()
     if (bankChange == true)
     {
       bankChange = false;
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_ncenB14_tr);
+      u8g2.drawStr(20, 25, "POBIERANIE  STACJI");
+      u8g2.drawStr(20, 50, "Z  SERWERA  GITHUB");
+      u8g2.sendBuffer();
       currentSelection = 0;
       firstVisibleLine = 0;
       station_nr = 1;
@@ -3701,7 +3715,7 @@ void loop()
     displayActive = true;
     displayStartTime = millis();
     bank_nr++;
-    if (bank_nr > 16)
+    if (bank_nr > 18)
     {
       bank_nr = 1;
     }
@@ -3718,14 +3732,15 @@ void loop()
     bank_nr--;
     if (bank_nr < 1)
     {
-      bank_nr = 16;
+      bank_nr = 18;
     }
     displayBank();
   }
 
-  if ((joystickSwitch == true) || (IRhomeButton == true))
+  //if ((joystickSwitch == true) || (IRhomeButton == true))
+  if (IRhomeButton == true)
   {
-    joystickSwitch = false;
+    //joystickSwitch = false;
     IRhomeButton = false;
     fetchAndDisplayCalendar();
   }

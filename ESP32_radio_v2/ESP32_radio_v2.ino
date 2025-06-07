@@ -117,6 +117,9 @@ bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterow
 bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
 bool IRbankUp = false;            // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk FAV+
 bool IRbankDown = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk FAV-
+bool IRpauseResume = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Play / Pause
+bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Mute
+bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
 
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -243,7 +246,7 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie wybranej stacji / folderu / pliku z przewijanej listy 
 #define rcCmdMode         0x0020   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
 #define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie menu systemowego ********do zrobienia w przyszłości
-#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie ********do zrobienia w przyszłości
+#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie
 #define rcCmdKey0         0x0012   // Przycisk "0"
 #define rcCmdKey1         0x0015   // Przycisk "1"
 #define rcCmdKey2         0x0014   // Przycisk "2"
@@ -256,6 +259,7 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdKey9         0x0005   // Przycisk "9"
 #define rcCmdBankUp       0x0018   // Przycisk FAV+ - lista banków / lista folderów - krok w dół na przewijanej liście
 #define rcCmdBankDown     0x0019   // Przycisk FAV- lista banków / lista folderów - krok do góry na przewijanej liście
+#define rcCmdPauseResume  0x0032   // Przycisk Play / Pause
 
 
 // Funkcja obsługująca przerwanie (reakcja na zmianę stanu pinu)
@@ -435,51 +439,59 @@ void processIRCode()
       // Rozpoznawanie przycisków na podstawie kodu
       if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
       { 
-          IRrightArrow = true;
+        IRrightArrow = true;
       } 
       else if (ir_code == rcCmdArrowLeft)    // Przycisk w lewo
       {  
-          IRleftArrow = true;
+        IRleftArrow = true;
       }
       else if (ir_code == rcCmdArrowUp)      // Przycisk w górę
       {  
-          IRupArrow = true;
+        IRupArrow = true;
       }
       else if (ir_code == rcCmdArrowDown)    // Przycisk w dół
       {  
-          IRdownArrow = true;
+        IRdownArrow = true;
       }
       else if (ir_code == rcCmdMode)         // Przycisk MODE
       {  
-          IRmenuButton = true;
+        IRmenuButton = true;
       }
       else if (ir_code == rcCmdHome)         // Przycisk MOME
       {  
-          IRhomeButton = true;
+        IRhomeButton = true;
       }
       else if (ir_code == rcCmdOk)           // Przycisk OK
       {  
-          IRokButton = true;
+        IRokButton = true;
       }
       else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
       {  
-          IRvolumeUp = true;
+        IRvolumeUp = true;
       }
       else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
       {  
-          IRvolumeDown = true;
+        IRvolumeDown = true;
       }
       else if (ir_code == rcCmdBankUp)       // Przycisk FAV+
       {  
-          IRbankUp = true;
+        IRbankUp = true;
       }
       else if (ir_code == rcCmdBankDown)     // Przycisk FAV-
       {  
-          IRbankDown = true;
+        IRbankDown = true;
+      }
+      else if (ir_code == rcCmdPauseResume)  // Przycisk Play / Pause
+      {
+        IRpauseResume = true;
+      }
+      else if (ir_code == rcCmdMute)         // Przycisk Mute
+      {
+        IRmuteTrigger = true;
       }
       else
       {
-          Serial.println("Inny przycisk");
+        Serial.println("Inny przycisk");
       }
 
       ir_code = 0;
@@ -713,8 +725,7 @@ void getWeatherData()
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
-  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -1867,6 +1878,18 @@ void playFromSelectedFolder()
         }
       }
 
+      if (IRpauseResume == true) // Przełączanie Play / Pause
+      {
+        IRpauseResume = false;
+        audio.pauseResume();
+      }
+
+      if (IRmuteTrigger == true) // Przełączanie Mute / Normal Volume
+      {
+        toggleMute();
+        IRmuteTrigger = false;
+      }
+
       handleEncoder1Rotation();  // Obsługa kółka enkodera nr 1
       handleEncoder2Rotation();  // Obsługa kółka enkodera nr 2
       backDisplayPlayer();       // Obsługa bezczynności, przywrócenie wyświetlania danych audio
@@ -2422,32 +2445,21 @@ void updateTimer()
   u8g2.setFont(spleen6x12PL);
   u8g2.drawStr(0, 51, "                                           ");
 
-  // Zwiększ licznik sekund
-  seconds++;
-
   // Wyświetl aktualny czas w sekundach
   // Konwertuj sekundy na minutę i sekundy
   unsigned int minutes = seconds / 60;
   unsigned int remainingSeconds = seconds % 60;
 
-  if ((timeDisplay == true) && audio.isRunning())
+  if ((timeDisplay == true) && (audio.isRunning() == true))
   {
-    if (mp3 == true)
-    {
-      u8g2.drawStr(170, 51, "MP3");
-    }
-    if (flac == true)
-    {
-      u8g2.drawStr(170, 51, "FLAC");
-    }
-    if (aac == true)
-    {
-      u8g2.drawStr(170, 51, "AAC");
-    }
-    if (vorbis == true)
-    {
-      u8g2.drawStr(170, 51, "VORB");
-    }
+    // Zwiększ licznik sekund
+    seconds++;
+
+    // Wyświetlanie typu pliku
+    if (mp3)        u8g2.drawStr(170, 51, "MP3");
+    else if (flac)  u8g2.drawStr(170, 51, "FLAC");
+    else if (aac)   u8g2.drawStr(170, 51, "AAC");
+    else if (vorbis)u8g2.drawStr(170, 51, "VORB");
     
     if (currentOption == PLAY_FILES)
     {
@@ -2455,18 +2467,38 @@ void updateTimer()
       char timeString[10];
       snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
 
-      // Pobierz bitrate
+      // Pobierz bitrate dla pliku
       bitrateString = audio.getBitRate(true);
-      //Serial.print("Bitrate pliku: ");
-      //Serial.println(bitrateString + " b/s");
-      
-      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
-      u8g2.drawStr(0, 51, displayString.c_str());
-      u8g2.drawStr(210, 51, timeString);
-      u8g2.sendBuffer();
+
+      // Jeśli wyciszenie jest aktywne
+      if (isMuted == true)
+      {
+        // Co 1 sekundę pokaż napis o wyciszeniu
+        if (millis() - lastCheckTime >= 1000)
+        {
+          u8g2.setFont(spleen6x12PL);
+          u8g2.drawStr(0, 51, "    Wyciszenie aktywne !    ");
+          lastCheckTime = millis(); // aktualizacja czasu ostatniego rysowania
+        }
+
+        // Wyświetl czas odtwarzania po prawej
+        u8g2.drawStr(210, 51, timeString);
+        u8g2.sendBuffer();
+      }
+      else
+      {
+        // Gdy nie ma wyciszenia – pokazuj parametry audio
+        String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+
+        u8g2.setFont(spleen6x12PL);
+        u8g2.drawStr(0, 51, displayString.c_str());
+        u8g2.drawStr(210, 51, timeString);
+        u8g2.sendBuffer();
+      }
     }
 
-    if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == true))
+
+    if ((currentOption == INTERNET_RADIO) && (timeDisplay == true))
     {
       // Struktura przechowująca informacje o czasie
       struct tm timeinfo;
@@ -2475,24 +2507,50 @@ void updateTimer()
       if (!getLocalTime(&timeinfo))
       {
         Serial.println("Nie udało się uzyskać czasu");
-        return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
+        return;
       }
 
       // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
       char timeString[9]; // Bufor przechowujący czas w formie tekstowej
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+      u8g2.setFont(spleen6x12PL);
 
-      // Pobierz bitrate
-      //bitrateString = audio.getBitRate(false);
-      //Serial.print("Bitrate stacji: ");
-      //Serial.println(bitrateString + " b/s");
+      if (isMuted == true)
+      {
+        if (millis() - lastCheckTime >= 1000)
+        {
+          u8g2.drawStr(0, 51, "    Wyciszenie aktywne !    ");
+          lastCheckTime = millis();
+        }
 
-      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
-      u8g2.drawStr(0, 51, displayString.c_str());
-      u8g2.drawStr(205, 51, timeString);
-      u8g2.sendBuffer();
-
+        u8g2.drawStr(205, 51, timeString);
+        u8g2.sendBuffer();
+      }
+      else
+      {
+        String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+        u8g2.drawStr(0, 51, displayString.c_str());
+        u8g2.drawStr(205, 51, timeString);
+        u8g2.sendBuffer();
+      }
     }
+
+  }
+
+  if ((currentOption == PLAY_FILES) && (audio.isRunning() == false))
+  {
+    // Formatuj czas jako "mm:ss"
+    char timeString[10];
+    snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
+
+    // Pulsujący co 1 sekundę napis o włączeniu pauzy
+    if (millis() - lastCheckTime >= 1000)
+    {
+      u8g2.drawStr(0, 51, "...... Uruchomiona Pauza ! ......");
+      lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
+    }
+    u8g2.drawStr(210, 51, timeString);
+    u8g2.sendBuffer();
   }
 
   // Sprawdzanie czy Internet Radio jest włączone, ale nie ma strumienia audio
@@ -2515,7 +2573,7 @@ void updateTimer()
     // Pulsujący co 1 sekundę napis o braku strumienia audio z radia
     if (millis() - lastCheckTime >= 1000)
     {
-      u8g2.drawStr(0, 51, ".... Brak strumienia audio ! ....");
+      u8g2.drawStr(0, 51, "...... Uruchomiona Pauza ! ......");
       lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
     }
     u8g2.drawStr(205, 51, timeString);
@@ -3302,6 +3360,26 @@ void fetchAndDisplayCalendar()
   }
 }
 
+void toggleMute() // Przełączanie Mute / Normal Volume
+{
+  isMuted = !isMuted;
+
+  if (isMuted)
+  {
+    Serial.println("Wyciszam – ustawiam volume na 0");
+    audio.setVolume(0);
+  }
+  else
+  {
+    Serial.print("Przywracam głośność: ");
+    Serial.println(volumeValue);
+    audio.setVolume(volumeValue);
+  }
+
+  Serial.print("Głośność aktualna: ");
+  Serial.println(audio.getVolume());
+}
+
 
 void setup()
 {
@@ -3743,6 +3821,18 @@ void loop()
     //joystickSwitch = false;
     IRhomeButton = false;
     fetchAndDisplayCalendar();
+  }
+
+  if (IRpauseResume == true) // Przełączanie Play / Pause
+  {
+    IRpauseResume = false;
+    audio.pauseResume();
+  }
+
+  if (IRmuteTrigger == true) // Przełączanie Mute / Normal Volume
+  {
+    toggleMute();
+    IRmuteTrigger = false;
   }
 
 }

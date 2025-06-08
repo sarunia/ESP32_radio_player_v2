@@ -2909,7 +2909,10 @@ void volumeSet()
   u8g2.drawStr(65, 25, "VOLUME SET");
   u8g2.drawStr(115, 50, volumeValueStr.c_str());
   u8g2.sendBuffer();
-  saveVolumeSettings(station_nr, volumeValue, bank_nr);
+  if (currentOption == INTERNET_RADIO)
+  {
+    saveVolumeSettings(station_nr, volumeValue, bank_nr);
+  }
 }
 
 // Obsługa regulacji głośności z pilota zdalnego sterowania

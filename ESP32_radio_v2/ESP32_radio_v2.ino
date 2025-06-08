@@ -13,7 +13,7 @@
 #include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
 
 // Definicje pinów dla SPI wyświetlacza OLED 
-#define SPI_MISO   0              // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na -1 (problem zgłaszany na forum, zmieniam na 0 ponownie)
+#define SPI_MISO   0              // Wyświetlacz OLED nie korzysta z MISO, ustawiamy na 0
 #define SPI_SCK    38             // Pin SCK dla wyświetlacza OLED
 #define SPI_MOSI   39             // Pin MOSI dla wyświetlacza OLED
 #define OLED_DC    40             // Pin DC dla OLED
@@ -36,10 +36,10 @@
 #define CLK_PIN1 6                // Podłączenie z pinu 6 do CLK na enkoderze prawym
 #define DT_PIN1  5                // Podłączenie z pinu 5 do DT na enkoderze prawym
 #define SW_PIN1  4                // Podłączenie z pinu 4 do SW na enkoderze prawym (przycisk)
-#define CLK_PIN2 11               // Podłączenie z pinu 10 do CLK na enkoderze
-#define DT_PIN2  10               // Podłączenie z pinu 11 do DT na enkoderze lewym
+#define CLK_PIN2 11               // Podłączenie z pinu 11 do CLK na enkoderze
+#define DT_PIN2  10               // Podłączenie z pinu 10 do DT na enkoderze lewym
 #define SW_PIN2  1                // Podłączenie z pinu 1 do SW na enkoderze lewym (przycisk)
-#define MAX_STATIONS 99          // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
+#define MAX_STATIONS 99           // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
 #define MAX_DIRECTORIES 128       // Maksymalna liczba katalogów
 #define MAX_FILES 128             // Maksymalna liczba plików w katalogu
@@ -95,7 +95,6 @@ bool aac = false;                 // Flaga określająca, czy aktualny plik audi
 bool vorbis = false;              // Flaga określająca, czy aktualny plik audio jest w formacie VORBIS
 bool id3tag = false;              // Flaga określająca, czy plik audio posiada dane ID3
 bool timeDisplay = true;          // Flaga określająca kiedy pokazać czas na wyświetlaczu, domyślnie od razu po starcie
-bool listedStations = false;      // Flaga określająca, czy na ekranie jest pokazana lista stacji do wyboru
 bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
 bool bitratePresent = false;      // Flaga określająca, czy na serial terminalu pojawiła się informacja o bitrate - jako ostatnia dana spływajaca z info
 bool playNextFile = false;        // Flaga określająca przejście do kolejnego odtwarzanego pliku audio
@@ -120,6 +119,7 @@ bool IRbankDown = false;          // Flaga określająca użycie zdalnego sterow
 bool IRpauseResume = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Play / Pause
 bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Mute
 bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
+bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -128,6 +128,9 @@ unsigned long seconds = 0;                // Licznik sekund timera
 unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
 unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
 unsigned long lastCheckTime = 0;          // Zmienna do śledzenia ostatniego czasu wyświetlenia komunikatu
+unsigned long lastMuteBlinkTime = 0;
+unsigned long lastPauseBlinkTime = 0;
+unsigned long lastNoStreamBlinkTime = 0;
 
 String directories[MAX_DIRECTORIES];      // Tablica do przechowywania nazw folderów
 String files[MAX_FILES];                  // Tablica do przechowywania nazw plików
@@ -243,9 +246,9 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdArrowLeft    0x0027   // Przycisk w lewo - poprzednia stacja / poprzedni plik, od razu uruchamiane przejście
 #define rcCmdArrowUp      0x0030   // Przycisk w górę - lista stacji / lista plików - krok do góry na przewijanej liście
 #define rcCmdArrowDown    0x0022   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
-#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie wybranej stacji / folderu / pliku z przewijanej listy 
+#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie wybranej stacji / banku / folderu / pliku
 #define rcCmdMode         0x0020   // Przycisk MODE - przełączanie radio internetowe / odtwarzacz plików
-#define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie menu systemowego ********do zrobienia w przyszłości
+#define rcCmdHome         0x0023   // Przycisk HOME - uruchomienie wyświetlania kartki z kalendarza na na określony czas
 #define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie
 #define rcCmdKey0         0x0012   // Przycisk "0"
 #define rcCmdKey1         0x0015   // Przycisk "1"
@@ -435,8 +438,7 @@ void processIRCode()
         Serial.println(" bajtów");
       }
 
-
-      // Rozpoznawanie przycisków na podstawie kodu
+      // Rozpoznawanie przycisków pilota na podstawie kodu i ustawianie flag użycia
       if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
       { 
         IRrightArrow = true;
@@ -499,7 +501,6 @@ void processIRCode()
     }
   }
 }
-
 
 // Tablica z dodanymi polskimi znakami diakrytycznymi
 const uint8_t spleen6x12PL[2954] U8G2_FONT_SECTION("spleen6x12PL") =
@@ -620,7 +621,6 @@ bool isAudioFile(const char *fileNameString)
           strcasecmp(ext, ".aiff") == 0 || // AIFF: nieskompresowany format bezstratny, używany głównie na komputerach Apple
           strcasecmp(ext, ".alac") == 0);  // ALAC: bezstratny format od Apple, podobny do FLAC
 }
-
 
 // Funkcja do obsługi przycisków enkoderów, odpowiedzialna za debouncing i wykrywanie długiego naciśnięcia
 void handleButtons()  
@@ -1542,8 +1542,6 @@ void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
   }
 }
 
-
-
 // Funkcja do wylistowania katalogów z karty 
 void listDirectories(const char *dirname)
 {
@@ -1629,7 +1627,6 @@ int maxSelection()
   }
   return 0; // Zwraca 0, jeśli żaden warunek nie jest spełniony
 }
-
 
 // Funkcja do odtwarzania plików audio z wybranej lokalizacji z karty SD
 void playFromSelectedFolder()
@@ -1786,7 +1783,7 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (button1.isPressed() || (IRmenuButton == true)) // Użycie przycisku enkodera nr 1 lub naciśnięcie HOME na pilocie powoduje przerwanie odtwarzania i wyjście do menu
+      if (button1.isPressed() || (IRmenuButton == true)) // Użycie przycisku enkodera nr 1 lub naciśnięcie MODE na pilocie powoduje przerwanie odtwarzania i wyjście do menu
       {
         IRmenuButton = false;
         audio.stopSong();
@@ -1879,9 +1876,9 @@ void playFromSelectedFolder()
       }
 
       if (IRpauseResume == true) // Przełączanie Play / Pause
-      {
+      { 
+        togglePauseResume();
         IRpauseResume = false;
-        audio.pauseResume();
       }
 
       if (IRmuteTrigger == true) // Przełączanie Mute / Normal Volume
@@ -2007,7 +2004,6 @@ void displayFiles()
   u8g2.sendBuffer();
 }
 
-
 // Obsługa wyświetlacza dla odtwarzanego strumienia radia internetowego
 void displayRadio()
 {
@@ -2015,7 +2011,7 @@ void displayRadio()
   u8g2.setFont(spleen6x12PL);
   u8g2.drawStr(0, 10, stationName.c_str());
 
-  // Parametry do obługi wyświetlania w 3 kolejnych wierszach z podzialem do pełnych wyrazów
+  // Parametry do obsługi wyświetlania w 3 kolejnych wierszach z podziałem do pełnych wyrazów
   const int maxLineLength = 41;  // Maksymalna długość jednej linii w znakach
   String currentLine = "";  // Bieżąca linia
   int yPosition = 21;  // Początkowa pozycja Y
@@ -2063,6 +2059,7 @@ void displayRadio()
   }
 
   u8g2.sendBuffer();
+
   // Ponowne wysłanie buforu zawartości ekranu, eliminowanie przypadkowych krzaczków
   if (millis() - lastCheckTime >= 100)
   {
@@ -2211,7 +2208,7 @@ void backDisplayPlayer()
   }
 }
 
-// Obsługa kółka enkodera 1 podczas dzialania odtwarzacza plików
+// Obsługa kółka enkodera 1 podczas działania odtwarzacza plików
 void handleEncoder1Rotation()
 {
   CLK_state1 = digitalRead(CLK_PIN1);
@@ -2251,7 +2248,7 @@ void handleEncoder1Rotation()
   prev_CLK_state1 = CLK_state1;
 }
 
-// Obsługa kółka enkodera 2 podczas dzialania odtwarzacza plików
+// Obsługa kółka enkodera 2 podczas działania odtwarzacza plików
 void handleEncoder2Rotation() 
 {
   CLK_state2 = digitalRead(CLK_PIN2);
@@ -2445,139 +2442,139 @@ void updateTimer()
   u8g2.setFont(spleen6x12PL);
   u8g2.drawStr(0, 51, "                                           ");
 
-  // Wyświetl aktualny czas w sekundach
-  // Konwertuj sekundy na minutę i sekundy
   unsigned int minutes = seconds / 60;
   unsigned int remainingSeconds = seconds % 60;
 
-  if ((timeDisplay == true) && (audio.isRunning() == true))
+  if (timeDisplay && audio.isRunning())
   {
-    // Zwiększ licznik sekund
     seconds++;
 
-    // Wyświetlanie typu pliku
     if (mp3)        u8g2.drawStr(170, 51, "MP3");
     else if (flac)  u8g2.drawStr(170, 51, "FLAC");
     else if (aac)   u8g2.drawStr(170, 51, "AAC");
     else if (vorbis)u8g2.drawStr(170, 51, "VORB");
-    
+
     if (currentOption == PLAY_FILES)
     {
-      // Formatuj czas jako "mm:ss"
       char timeString[10];
       snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
-
-      // Pobierz bitrate dla pliku
       bitrateString = audio.getBitRate(true);
 
-      // Jeśli wyciszenie jest aktywne
-      if (isMuted == true)
+      if (isMuted)
       {
-        // Co 1 sekundę pokaż napis o wyciszeniu
-        if (millis() - lastCheckTime >= 1000)
+        // Migający komunikat co 1 sekundę
+        if (millis() - lastMuteBlinkTime >= 1000)
         {
-          u8g2.setFont(spleen6x12PL);
           u8g2.drawStr(0, 51, "    Wyciszenie aktywne !    ");
-          lastCheckTime = millis(); // aktualizacja czasu ostatniego rysowania
+          lastMuteBlinkTime = millis(); // Aktualizacja zegara migania
         }
 
-        // Wyświetl czas odtwarzania po prawej
         u8g2.drawStr(210, 51, timeString);
         u8g2.sendBuffer();
+        return;  // Zakończ wcześniej, by nie nadpisać napisu
       }
-      else
-      {
-        // Gdy nie ma wyciszenia – pokazuj parametry audio
-        String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
 
-        u8g2.setFont(spleen6x12PL);
-        u8g2.drawStr(0, 51, displayString.c_str());
-        u8g2.drawStr(210, 51, timeString);
-        u8g2.sendBuffer();
-      }
+      // Wyświetlenie parametrów audio: częstotliwość, bity, bitrate
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+      u8g2.drawStr(0, 51, displayString.c_str());
+      u8g2.drawStr(210, 51, timeString);
+      u8g2.sendBuffer();
+      return;
     }
 
-
-    if ((currentOption == INTERNET_RADIO) && (timeDisplay == true))
+    if (currentOption == INTERNET_RADIO)
     {
-      // Struktura przechowująca informacje o czasie
       struct tm timeinfo;
-
-      // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
       if (!getLocalTime(&timeinfo))
       {
         Serial.println("Nie udało się uzyskać czasu");
         return;
       }
 
-      // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
-      char timeString[9]; // Bufor przechowujący czas w formie tekstowej
+      char timeString[9];
       snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-      u8g2.setFont(spleen6x12PL);
 
-      if (isMuted == true)
+      if (isMuted)
       {
-        if (millis() - lastCheckTime >= 1000)
+        // Migający napis "wyciszenie aktywne" dla radia
+        if (millis() - lastMuteBlinkTime >= 1000)
         {
           u8g2.drawStr(0, 51, "    Wyciszenie aktywne !    ");
-          lastCheckTime = millis();
+          lastMuteBlinkTime = millis();
         }
 
         u8g2.drawStr(205, 51, timeString);
         u8g2.sendBuffer();
+        return;
+      }
+
+      String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
+      u8g2.drawStr(0, 51, displayString.c_str());
+      u8g2.drawStr(205, 51, timeString);
+      u8g2.sendBuffer();
+      return;
+    }
+  }
+
+  // Jeśli audio jest zatrzymane (pauza lub brak strumienia)
+  if (timeDisplay && !audio.isRunning())
+  {
+    if (currentOption == PLAY_FILES && isPaused)
+    {
+      char timeString[10];
+      snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
+
+      // Migający napis informujący o pauzie
+      if (millis() - lastPauseBlinkTime >= 1000)
+      {
+        u8g2.drawStr(0, 51, "       Uruchomiona Pauza !       ");
+        lastPauseBlinkTime = millis();
+      }
+
+      u8g2.drawStr(210, 51, timeString);
+      u8g2.sendBuffer();
+      return;
+    }
+
+    if (currentOption == INTERNET_RADIO)
+    {
+      struct tm timeinfo;
+      if (!getLocalTime(&timeinfo))
+      {
+        Serial.println("Nie udało się uzyskać czasu");
+        return;
+      }
+
+      char timeString[9];
+      snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+      if (isPaused)
+      {
+        // Migający napis pauzy dla radia
+        if (millis() - lastPauseBlinkTime >= 1000)
+        {
+          u8g2.drawStr(0, 51, "       Uruchomiona Pauza !       ");
+          lastPauseBlinkTime = millis();
+        }
+
+        u8g2.drawStr(205, 51, timeString);
+        u8g2.sendBuffer();
+        return;
       }
       else
       {
-        String displayString = sampleRateString.substring(1) + "Hz " + bitsPerSampleString + "bit " + bitrateString + " b/s";
-        u8g2.drawStr(0, 51, displayString.c_str());
+        // Migający napis o braku strumienia (gdy nie ma pauzy)
+        if (millis() - lastNoStreamBlinkTime >= 1000)
+        {
+          u8g2.drawStr(0, 51, "     Brak strumienia audio !     ");
+          lastNoStreamBlinkTime = millis();
+        }
+
         u8g2.drawStr(205, 51, timeString);
         u8g2.sendBuffer();
+        return;
       }
     }
-
-  }
-
-  if ((currentOption == PLAY_FILES) && (audio.isRunning() == false))
-  {
-    // Formatuj czas jako "mm:ss"
-    char timeString[10];
-    snprintf(timeString, sizeof(timeString), "%02um:%02us", minutes, remainingSeconds);
-
-    // Pulsujący co 1 sekundę napis o włączeniu pauzy
-    if (millis() - lastCheckTime >= 1000)
-    {
-      u8g2.drawStr(0, 51, "...... Uruchomiona Pauza ! ......");
-      lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
-    }
-    u8g2.drawStr(210, 51, timeString);
-    u8g2.sendBuffer();
-  }
-
-  // Sprawdzanie czy Internet Radio jest włączone, ale nie ma strumienia audio
-  if ((currentOption == INTERNET_RADIO) && (timeDisplay == true) && (audio.isRunning() == false))
-  {
-    // Struktura przechowująca informacje o czasie
-    struct tm timeinfo;
-
-    // Sprawdź, czy udało się pobrać czas z lokalnego zegara czasu rzeczywistego
-    if (!getLocalTime(&timeinfo))
-    {
-      Serial.println("Nie udało się uzyskać czasu");
-      return; // Zakończ funkcję, gdy nie udało się uzyskać czasu
-    }
-
-    // Konwertuj godzinę, minutę i sekundę na stringi w formacie "HH:MM:SS"
-    char timeString[9]; // Bufor przechowujący czas w formie tekstowej
-    snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-    // Pulsujący co 1 sekundę napis o braku strumienia audio z radia
-    if (millis() - lastCheckTime >= 1000)
-    {
-      u8g2.drawStr(0, 51, "...... Uruchomiona Pauza ! ......");
-      lastCheckTime = millis(); // Zaktualizuj czas ostatniego sprawdzenia
-    }
-    u8g2.drawStr(205, 51, timeString);
-    u8g2.sendBuffer();
   }
 }
 
@@ -2657,7 +2654,6 @@ void saveStationOnSD()
   }
 }
 
-
 // Funkcja do odczytywania numeru stacji i numeru banku z karty SD
 void readStationFromSD()
 {
@@ -2712,8 +2708,6 @@ void readStationFromSD()
     Serial.println("Plik bank_nr.txt nie istnieje.");
   }
 }
-
-
 
 // Funkcja do obsługi joysticka w osi X oraz jego przycisku
 /*void handleJoystick()
@@ -2815,7 +2809,6 @@ void readStationFromSD()
   lastButtonState = swState;
 }*/
 
-
 // Funkcja przetwarza tekst, wstawiając polskie znaki diakrytyczne
 void processText(String &text)
 {
@@ -2878,7 +2871,6 @@ void processText(String &text)
   }
 }
 
-
 // Funkcja wyświetlająca numer banku na pełnym ekranie
 void displayBank()
 {
@@ -2920,7 +2912,6 @@ void volumeSet()
   saveVolumeSettings(station_nr, volumeValue, bank_nr);
 }
 
-
 // Obsługa regulacji głośności z pilota zdalnego sterowania
 void volumeSetFromRemote()
 {
@@ -2946,7 +2937,6 @@ void volumeSetFromRemote()
     volumeSet();
   }
 }
-
 
 // Zapisywanie na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
 void saveVolumeSettings(int station, int volume, int bank)
@@ -3004,7 +2994,6 @@ void saveVolumeSettings(int station, int volume, int bank)
     Serial.println("Błąd otwierania pliku do zapisu.");
   }
 }
-
 
 // Ładowanie zapisanych na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
 void loadVolumeSettings(int station, int bank)
@@ -3113,7 +3102,6 @@ void loadVolumeSettings(int station, int bank)
   }
   Serial.println();
 }
-
 
 // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jesli pliki już istnieją funkcja sprawdza ich obecność
 void SDinit()
@@ -3380,6 +3368,22 @@ void toggleMute() // Przełączanie Mute / Normal Volume
   Serial.println(audio.getVolume());
 }
 
+void togglePauseResume() // Przełączanie Play / Pause
+{
+  isPaused = !isPaused;
+
+  if (isPaused)
+  {
+    Serial.println("Zatrzymuję odtwarzanie – Pauza");
+  }
+  else
+  {
+    Serial.println("Wznawiam odtwarzanie – Play");
+  }
+
+  audio.pauseResume(); // ta funkcja obsługuje oba stany wewnętrznie
+}
+
 
 void setup()
 {
@@ -3388,11 +3392,11 @@ void setup()
   digitalWrite(SD_CS, HIGH);
 
   // Konfiguruj piny enkodera jako wejścia
-  pinMode(CLK_PIN1, INPUT);
-  pinMode(DT_PIN1, INPUT);
-  pinMode(CLK_PIN2, INPUT);
-  pinMode(DT_PIN2, INPUT);
-    // Inicjalizacja przycisków enkoderów jako wejścia
+  pinMode(CLK_PIN1, INPUT_PULLUP);
+  pinMode(DT_PIN1, INPUT_PULLUP);
+  pinMode(CLK_PIN2, INPUT_PULLUP);
+  pinMode(DT_PIN2, INPUT_PULLUP);
+  // Inicjalizacja przycisków enkoderów jako wejścia
   pinMode(SW_PIN1, INPUT_PULLUP);
   pinMode(SW_PIN2, INPUT_PULLUP);
 
@@ -3439,7 +3443,6 @@ void setup()
     Serial.println("Błąd pamięci PSRAM");
   }
   
-
   // Inicjalizacja SPI z nowymi pinami dla czytnika kart SD
   customSPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);  // Inicjalizacja HSPI dla SD
 
@@ -3461,10 +3464,6 @@ void setup()
   u8g2.setFont(u8g2_font_ncenB18_tr);
   u8g2.drawStr(5, 40, "INTERNET RADIO");
   u8g2.sendBuffer();	
-
-  button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
-
-
 
   // Inicjalizacja WiFiManagera
   WiFiManager wifiManager;
@@ -3624,7 +3623,6 @@ void loop()
     displayTimeout = 6000;
     displayActive = false;
     timeDisplay = true;
-    listedStations = false;
     menuEnable = false;
     bankChange = false;
     currentOption = INTERNET_RADIO;
@@ -3816,7 +3814,7 @@ void loop()
   }
 
   //if ((joystickSwitch == true) || (IRhomeButton == true))
-  if (IRhomeButton == true)
+  if (IRhomeButton == true) // Włączenie wyświetlania kartki z kalendarza na zadany czas
   {
     //joystickSwitch = false;
     IRhomeButton = false;
@@ -3824,9 +3822,9 @@ void loop()
   }
 
   if (IRpauseResume == true) // Przełączanie Play / Pause
-  {
+  { 
+    togglePauseResume();
     IRpauseResume = false;
-    audio.pauseResume();
   }
 
   if (IRmuteTrigger == true) // Przełączanie Mute / Normal Volume

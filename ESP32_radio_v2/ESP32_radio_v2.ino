@@ -725,7 +725,8 @@ void getWeatherData()
   HTTPClient http;  // Utworzenie obiektu HTTPClient
   
   // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org, poniższy link nie zawiera klucza API, więc nie zadziała.
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
+  //String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
+  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";
 
   http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
 
@@ -3395,13 +3396,13 @@ void setup()
   digitalWrite(SD_CS, HIGH);
 
   // Konfiguruj piny enkodera jako wejścia
-  pinMode(CLK_PIN1, INPUT_PULLUP);
-  pinMode(DT_PIN1, INPUT_PULLUP);
-  pinMode(CLK_PIN2, INPUT_PULLUP);
-  pinMode(DT_PIN2, INPUT_PULLUP);
+  pinMode(CLK_PIN1, INPUT);
+  pinMode(DT_PIN1, INPUT);
+  pinMode(CLK_PIN2, INPUT);
+  pinMode(DT_PIN2, INPUT);
   // Inicjalizacja przycisków enkoderów jako wejścia
-  pinMode(SW_PIN1, INPUT_PULLUP);
-  pinMode(SW_PIN2, INPUT_PULLUP);
+  pinMode(SW_PIN1, INPUT);
+  pinMode(SW_PIN2, INPUT);
 
    // Inicjalizacja pinów joysticka
   //pinMode(xPin, INPUT);

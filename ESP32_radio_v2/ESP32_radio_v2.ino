@@ -3418,6 +3418,9 @@ void setup()
   prev_CLK_state1 = digitalRead(CLK_PIN1);
   prev_CLK_state2 = digitalRead(CLK_PIN2);
 
+  button1.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 1
+  button2.setDebounceTime(50);  // Ustawienie czasu debouncingu dla przycisku enkodera 2
+
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT); // Konfiguruj pinout dla interfejsu I2S audio
   audio.setVolume(volumeValue); // Ustaw głośność na podstawie wartości zmiennej volumeValue w zakresie 0...21
 

@@ -3550,15 +3550,20 @@ void loop()
       // Obsługa przewijania menu enkoderem
       if (DT_state1 == HIGH)
       {
-        // Obrót w jedną stronę - inkrementacja
-        currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Cykl pomiędzy 0 a 1
+        // Obrót w prawo – przejście do następnej opcji
+        if (currentOption == PLAY_FILES)
+          currentOption = INTERNET_RADIO;
+        else
+          currentOption = PLAY_FILES;
       }
       else
       {
-        // Obrót w drugą stronę - dekrementacja
-        currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) - 1 + 2) % 2);  // Cykl pomiędzy 0 a 1
+        // Obrót w lewo – przejście do poprzedniej opcji
+        if (currentOption == INTERNET_RADIO)
+          currentOption = PLAY_FILES;
+        else
+          currentOption = INTERNET_RADIO;
       }
-
       // Wyświetl menu po zmianie opcji
       displayMenu();
     }
@@ -3769,7 +3774,15 @@ void loop()
     menuEnable = true;
     displayActive = true;
     displayStartTime = millis();
-    currentOption = static_cast<MenuOption>((static_cast<int>(currentOption) + 1) % 2);  // Przełączanie między opcjami do wyboru
+    // Przełączanie opcji menu na drugą (cyklicznie)
+    if (currentOption == INTERNET_RADIO)
+    {
+      currentOption = PLAY_FILES;
+    }
+    else
+    {
+      currentOption = INTERNET_RADIO;
+    }
     displayMenu();
   }
 

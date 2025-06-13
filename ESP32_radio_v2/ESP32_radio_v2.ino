@@ -3636,40 +3636,60 @@ void loop()
     bank_nr = previous_bank_nr;
     displayRadio();
   }
-  
-  if ((currentOption == PLAY_FILES) && (menuEnable == true) && (button1.isPressed() || IRokButton == true))
-  {
-    IRokButton = false;
-    menuEnable = false;
-    if (!SD.begin(SD_CS))
-    {
-      Serial.println("Błąd inicjalizacji karty SD!");
-      return;
-    }
-    folderIndex = 0;
-    currentSelection = 0;
-    firstVisibleLine = 1;
-    String text = "  ŁADOWANIE FOLDERÓW Z KARTY SD, CZEKAJ... ";
-    processText(text);  // Podstawienie polskich znaków diakrytycznych
-    u8g2.clearBuffer();
-    u8g2.setFont(spleen6x12PL);
-    u8g2.setCursor(0, 10);
-    u8g2.print(text);
-    u8g2.sendBuffer();
-    listDirectories("/");
-    audio.stopSong();
-    volumeValue = 15;
-    audio.setVolume(volumeValue);
-    playFromSelectedFolder();
-  }
 
-  if ((currentOption == INTERNET_RADIO) && (menuEnable == true) && (button1.isPressed() || IRokButton == true))
+  if (menuEnable && (button1.isPressed() || IRokButton))
   {
-    IRokButton = false;
-    menuEnable = false;
-    volumeValue = 12;
-    audio.setVolume(volumeValue); // dopuszczalny zakres 0...21
-    changeStation();
+    menuEnable = false;     // Blokuj ponowne wejście do tej sekcji
+    IRokButton = false;     // Reset flagi pilota, niezależnie od źródła wejścia
+
+    // Jeśli kliknięcie pochodzi z fizycznego przycisku, czekaj na jego puszczenie
+    if (button1.isPressed())
+    {
+      button1.loop();        // Odświeżenie stanu przycisku
+      while (button1.isPressed())
+      {
+        vTaskDelay(10);      // Krótkie opóźnienie — czekaj aż przycisk zostanie zwolniony
+        button1.loop();
+      }
+    }
+
+    if (currentOption == PLAY_FILES)
+    {
+      // Próba inicjalizacji karty SD
+      if (!SD.begin(SD_CS))
+      {
+        Serial.println("Błąd inicjalizacji karty SD!");
+        return;  // Przerwij jeśli SD nie jest gotowe
+      }
+
+      // Reset pozycji i indeksów folderów i plików
+      folderIndex = 0;
+      currentSelection = 0;
+      firstVisibleLine = 1;
+
+      // Informacja tekstowa — przetwarzana pod kątem polskich znaków
+      String text = "  ŁADOWANIE FOLDERÓW Z KARTY SD, CZEKAJ... ";
+      processText(text);
+
+      // Aktualizacja wyświetlacza
+      u8g2.clearBuffer();
+      u8g2.setFont(spleen6x12PL);
+      u8g2.setCursor(0, 10);
+      u8g2.print(text);
+      u8g2.sendBuffer();
+
+      listDirectories("/");        // Odczyt folderów z katalogu głównego
+      audio.stopSong();            // Na wszelki wypadek — zatrzymaj poprzedni plik
+      volumeValue = 15;            // Ustaw domyślną głośność dla plików
+      audio.setVolume(volumeValue);
+      playFromSelectedFolder();    // Start odtwarzania plików z pierwszego folderu
+    }
+    else if (currentOption == INTERNET_RADIO)
+    {
+      volumeValue = 12;            // Domyślna głośność dla radia
+      audio.setVolume(volumeValue);
+      changeStation();             // Start odtwarzania bieżącej stacji radiowej
+    }
   }
 
   if ((currentOption == INTERNET_RADIO) && button2.isReleased() && (bankChange == false))

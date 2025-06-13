@@ -1771,6 +1771,16 @@ void playFromSelectedFolder()
 
       if (button2.isPressed()) // Użycie przycisku enkodera nr 2
       {
+        // Jeśli kliknięcie pochodzi z fizycznego przycisku, czekaj na jego puszczenie
+         if (button2.isPressed())
+        {
+          button2.loop();        // Odświeżenie stanu przycisku
+          while (button2.isPressed())
+          {
+            vTaskDelay(10);      // Krótkie opóźnienie — czekaj aż przycisk zostanie zwolniony
+            button2.loop();
+          }
+        }
         audio.stopSong();
         playNextFolder = true;
         id3tag = false;
@@ -1787,6 +1797,16 @@ void playFromSelectedFolder()
       if (button1.isPressed() || (IRmenuButton == true)) // Użycie przycisku enkodera nr 1 lub naciśnięcie MODE na pilocie powoduje przerwanie odtwarzania i wyjście do menu
       {
         IRmenuButton = false;
+        // Jeśli kliknięcie pochodzi z fizycznego przycisku, czekaj na jego puszczenie
+        if (button1.isPressed())
+        {
+          button1.loop();        // Odświeżenie stanu przycisku
+          while (button1.isPressed())
+          {
+            vTaskDelay(10);      // Krótkie opóźnienie — czekaj aż przycisk zostanie zwolniony
+            button1.loop();
+          }
+        }
         audio.stopSong();
         encoderButton1 = true;
         break;
